@@ -60,20 +60,29 @@
         .match-item {
             background: #0f172a;
             border-left: 4px solid var(--border-color);
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 8px;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
             font-size: 0.9em;
         }
         .match-item.Victoria { border-left-color: var(--win-color); }
         .match-item.Derrota { border-left-color: var(--loss-color); }
-        .coach-advice { background: #1e1b4b; border: 1px solid var(--purple-accent); padding: 12px; border-radius: 8px; }
+        .tactical-box {
+            background: #182232;
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #cbd5e1;
+            border: 1px dashed var(--border-color);
+        }
+        .coach-advice { background: #1e1b4b; border: 1px solid var(--purple-accent); padding: 14px; border-radius: 8px; font-size: 0.95em; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🏆 VGC Champion Coach Engine</h1>
-
+        
         <!-- Importador de Showdown -->
         <div class="card">
             <h3>⚡ Auto-Importar Replay de Showdown</h3>
@@ -87,7 +96,7 @@
                 <button type="submit" class="btn">Procesar e Importar Combate</button>
             </form>
         </div>
-
+        
         <!-- Diagnóstico del Entrenador -->
         <div class="card">
             <h3>🧠 Diagnóstico del Coach Python</h3>
@@ -95,7 +104,7 @@
                 {{ coach_advice | safe }}
             </div>
         </div>
-
+        
         <!-- Estadísticas Globales -->
         <div class="card grid-2">
             <div class="stat-box">
@@ -107,7 +116,7 @@
                 <div class="stat-value">{{ total_wins }} / {{ total_matches - total_wins }}</div>
             </div>
         </div>
-
+        
         <!-- Progreso CP (900 Goal) -->
         <div class="card">
             <h3>Ruta al Mundial: <b>{{ total_cp }} / 900 CP</b> ({{ cp_pct }}%)</h3>
@@ -121,17 +130,23 @@
                 <button type="submit" class="btn" style="grid-column: span 2;">Registrar Puntos</button>
             </form>
         </div>
-
-        <!-- Historial de Partidas -->
+        
+        <!-- Historial de Combates -->
         <div class="card">
-            <h3>Historial de Combates</h3>
+            <h3>Historial de Combates con Análisis Táctico</h3>
             {% if matches %}
                 {% for m in matches %}
                     <div class="match-item {{ m[5] }}">
-                        <b>vs {{ m[0] }}</b> ({{ m[5] }}) <small>{{ m[8][:10] }}</small><br>
+                        <b>vs {{ m[0] }}</b> ({{ m[5] }}) <small style="float: right;">{{ m[8][:10] }}</small><br>
                         <small><b>Yo:</b> {{ m[1] }} | {{ m[2] }}</small><br>
                         <small><b>Rival:</b> {{ m[3] }} | {{ m[4] }}</small>
                         {% if m[6] != 'Ninguna' %}<br><small><b>Mega:</b> {{ m[6] }}</small>{% endif %}
+                        
+                        {% if m[10] %}
+                            <div class="tactical-box">
+                                📊 <b>Análisis Táctico:</b><br>{{ m[10] | safe }}
+                            </div>
+                        {% endif %}
                     </div>
                 {% endfor %}
             {% else %}
