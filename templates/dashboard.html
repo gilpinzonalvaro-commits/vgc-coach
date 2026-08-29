@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VGC Champion Coach Engine</title>
+    <title>VGC World Championship Coach - polilla02</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -15,6 +15,7 @@
             --win-color: #22c55e;
             --loss-color: #ef4444;
             --border-color: #334155;
+            --gold-accent: #eab308;
         }
         body {
             font-family: apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -25,8 +26,9 @@
             display: flex;
             justify-content: center;
         }
-        .container { max-width: 600px; width: 100%; }
-        h1 { text-align: center; color: var(--accent-color); font-size: 1.5em; margin-bottom: 20px; }
+        .container { max-width: 650px; width: 100%; }
+        h1 { text-align: center; color: var(--gold-accent); font-size: 1.6em; margin-bottom: 4px; }
+        .subtitle { text-align: center; color: var(--text-muted); font-size: 0.9em; margin-bottom: 20px; }
         .card {
             background: var(--card-bg);
             border-radius: 12px;
@@ -36,123 +38,234 @@
         }
         .form-group { margin-bottom: 12px; }
         label { display: block; margin-bottom: 4px; font-size: 0.85em; color: var(--text-muted); }
-        input, button {
+        input, select, button, textarea {
             width: 100%;
-            padding: 12px;
+            padding: 11px;
             background: #0f172a;
             border: 1px solid var(--border-color);
             border-radius: 6px;
             color: white;
             box-sizing: border-box;
+            font-size: 0.9em;
         }
         .btn {
             background: var(--accent-color);
             font-weight: bold;
             border: none;
             cursor: pointer;
-            margin-top: 8px;
+            margin-top: 6px;
         }
+        .btn-gold { background: var(--gold-accent); color: #0f172a; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .stat-box { text-align: center; padding: 12px; background: #0f172a; border-radius: 8px; }
-        .stat-value { font-size: 1.6em; font-weight: bold; }
+        .stat-value { font-size: 1.5em; font-weight: bold; }
         .progress-bar-bg { background: #0f172a; height: 18px; border-radius: 9px; overflow: hidden; margin-top: 8px; }
-        .progress-bar-fill { background: linear-gradient(90deg, #3b82f6, #22c55e); height: 100%; width: 0%; transition: width 0.3s; }
-        .match-item {
+        .progress-bar-fill { background: linear-gradient(90deg, #3b82f6, #eab308); height: 100%; width: 0%; transition: width 0.3s; }
+        
+        .series-card {
             background: #0f172a;
-            border-left: 4px solid var(--border-color);
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 10px;
-            font-size: 0.9em;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
         }
-        .match-item.Victoria { border-left-color: var(--win-color); }
-        .match-item.Derrota { border-left-color: var(--loss-color); }
-        .tactical-box {
-            background: #182232;
-            border-radius: 4px;
+        .series-card.Victoria { border-left: 5px solid var(--win-color); }
+        .series-card.Derrota { border-left: 5px solid var(--loss-color); }
+        .game-badge {
+            background: #1e293b;
             padding: 8px;
-            margin-top: 8px;
+            border-radius: 4px;
+            margin-top: 6px;
             font-size: 0.85em;
-            color: #cbd5e1;
-            border: 1px dashed var(--border-color);
+            border-left: 3px solid var(--accent-color);
         }
         .coach-advice { background: #1e1b4b; border: 1px solid var(--purple-accent); padding: 14px; border-radius: 8px; font-size: 0.95em; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.85em; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color); }
+        th { color: var(--text-muted); }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🏆 VGC Champion Coach Engine</h1>
+        <h1>👑 VGC Coach: Camino al Mundial</h1>
+        <div class="subtitle">Entrenador Táctico | Usuario: <b>{{ default_user }}</b></div>
         
-        <!-- Importador de Showdown -->
+        <!-- Importar Game BO3 -->
         <div class="card">
-            <h3>⚡ Auto-Importar Replay de Showdown</h3>
+            <h3>⚡ Registrar Game de Showdown</h3>
             <form action="/parse_replay" method="POST">
                 <div class="form-group">
+                    <label>Enlace del Replay</label>
                     <input type="url" name="replay_url" required placeholder="https://replay.pokemonshowdown.com/gen9vgc...">
                 </div>
-                <div class="form-group">
-                    <input type="text" name="user_name" placeholder="Tu nick en Showdown (Opcional)">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Asignar a Serie BO3</label>
+                        <select name="series_id">
+                            <option value="new">➕ Nueva Serie BO3 (Nuevo Rival)</option>
+                            {% for s in series_list %}
+                                {% if 'BO3' not in s.result %}
+                                    <option value="{{ s.id }}">Vs {{ s.opponent }} (Actualmente {{ s.result }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Jugador (Tu Nick)</label>
+                        <input type="text" name="user_name" value="{{ default_user }}">
+                    </div>
                 </div>
-                <button type="submit" class="btn">Procesar e Importar Combate</button>
+                <button type="submit" class="btn btn-gold">Procesar Game e Integrar en BO3</button>
             </form>
         </div>
-        
-        <!-- Diagnóstico del Entrenador -->
+
+        <!-- Diagnóstico del Coach -->
         <div class="card">
-            <h3>🧠 Diagnóstico del Coach Python</h3>
+            <h3>🧠 Diagnóstico del Coach para el Mundial</h3>
             <div class="coach-advice">
                 {{ coach_advice | safe }}
             </div>
         </div>
-        
-        <!-- Estadísticas Globales -->
+
+        <!-- Estadísticas BO3 -->
         <div class="card grid-2">
             <div class="stat-box">
-                <div>Winrate</div>
-                <div class="stat-value" style="color: var(--win-color);">{{ winrate }}%</div>
+                <div>Winrate BO3</div>
+                <div class="stat-value" style="color: var(--win-color);">{{ series_winrate }}%</div>
             </div>
             <div class="stat-box">
-                <div>Récord (V/D)</div>
-                <div class="stat-value">{{ total_wins }} / {{ total_matches - total_wins }}</div>
+                <div>Series Récord (V/D)</div>
+                <div class="stat-value">{{ total_series_wins }} / {{ total_series_count - total_series_wins }}</div>
             </div>
         </div>
-        
-        <!-- Progreso CP (900 Goal) -->
+
+        <!-- Calculadora de Speed Tiers -->
         <div class="card">
-            <h3>Ruta al Mundial: <b>{{ total_cp }} / 900 CP</b> ({{ cp_pct }}%)</h3>
+            <h3>⚡ Calculadora de Speed Tiers</h3>
+            <div class="grid-2">
+                <div>
+                    <label>Base Speed Stat:</label>
+                    <input type="number" id="baseSpeed" value="136">
+                </div>
+                <div>
+                    <label>Modificador:</label>
+                    <select id="speedMod" onchange="calculateSpeed()">
+                        <option value="1">Normal (x1.0)</option>
+                        <option value="2">Tailwind (x2.0)</option>
+                        <option value="1.5">Choice Scarf (x1.5)</option>
+                        <option value="0.67">-1 Velocidad (x0.67)</option>
+                        <option value="-1">Trick Room (Invertido)</option>
+                    </select>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 10px; padding: 10px; background: #0f172a; border-radius: 6px;">
+                <b>Velocidad Real: <span id="realSpeed" style="color: var(--gold-accent); font-size: 1.3em;">136</span></b>
+            </div>
+        </div>
+
+        <!-- Métricas Tácticas -->
+        <div class="card grid-2">
+            <div>
+                <h4>🎯 Winrate por Lead</h4>
+                <table>
+                    <tr><th>Pareja</th><th>P.</th><th>WR</th></tr>
+                    {% for l in lead_stats %}
+                        <tr><td>{{ l.lead }}</td><td>{{ l.total }}</td><td style="color: var(--win-color);">{{ l.wr }}%</td></tr>
+                    {% else %}
+                        <tr><td colspan="3">Sin datos</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+            <div>
+                <h4>🛡️ Winrate por Arquetipo</h4>
+                <table>
+                    <tr><th>Arquetipo</th><th>P.</th><th>WR</th></tr>
+                    {% for a in archetype_stats %}
+                        <tr><td>{{ a.arch }}</td><td>{{ a.total }}</td><td style="color: var(--win-color);">{{ a.wr }}%</td></tr>
+                    {% else %}
+                        <tr><td colspan="3">Sin datos</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+
+        <!-- Métricas de Megas Rivales -->
+        <div class="card">
+            <h4>🐉 Rendimiento frente a Megas Rivales</h4>
+            <table>
+                <tr><th>Mega Rival</th><th>Combates</th><th>Winrate</th></tr>
+                {% for m in mega_stats %}
+                    <tr><td>{{ m.mega }}</td><td>{{ m.total }}</td><td style="color: var(--win-color);">{{ m.wr }}%</td></tr>
+                {% else %}
+                    <tr><td colspan="3">Sin combates registrados contra Megas</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <!-- Progreso de CP -->
+        <div class="card">
+            <h3>Camino al Mundial: <b>{{ total_cp }} / 900 CP</b> ({{ cp_pct }}%)</h3>
             <div class="progress-bar-bg">
                 <div class="progress-bar-fill" style="width: {{ cp_pct }}%;"></div>
             </div>
             <br>
             <form action="/add_cp" method="POST" class="grid-2">
-                <input type="text" name="name" placeholder="Torneo (ej. Regional)">
+                <input type="text" name="name" placeholder="Torneo">
                 <input type="number" name="cp" placeholder="CPs Ganados">
-                <button type="submit" class="btn" style="grid-column: span 2;">Registrar Puntos</button>
+                <button type="submit" class="btn" style="grid-column: span 2;">Registrar CP</button>
             </form>
         </div>
-        
-        <!-- Historial de Combates -->
+
+        <!-- Historial BO3 -->
         <div class="card">
-            <h3>Historial de Combates con Análisis Táctico</h3>
-            {% if matches %}
-                {% for m in matches %}
-                    <div class="match-item {{ m[5] }}">
-                        <b>vs {{ m[0] }}</b> ({{ m[5] }}) <small style="float: right;">{{ m[8][:10] }}</small><br>
-                        <small><b>Yo:</b> {{ m[1] }} | {{ m[2] }}</small><br>
-                        <small><b>Rival:</b> {{ m[3] }} | {{ m[4] }}</small>
-                        {% if m[6] != 'Ninguna' %}<br><small><b>Mega:</b> {{ m[6] }}</small>{% endif %}
+            <h3> Historial de Series BO3</h3>
+            {% if series_list %}
+                {% for s in series_list %}
+                    <div class="series-card {{ s.result.split(' ')[0] }}">
+                        <div style="display: flex; justify-content: space-between;">
+                            <b>vs {{ s.opponent }}</b>
+                            <span style="font-weight: bold;">{{ s.result }}</span>
+                        </div>
+                        <small style="color: var(--text-muted);">Fecha: {{ s.date[:10] }}</small>
                         
-                        {% if m[10] %}
-                            <div class="tactical-box">
-                                📊 <b>Análisis Táctico:</b><br>{{ m[10] | safe }}
-                            </div>
+                        {% if 'Derrota' in s.result %}
+                            <form action="/update_misplay" method="POST" style="margin-top: 8px; background: #1e293b; padding: 8px; border-radius: 4px;">
+                                <input type="hidden" name="series_id" value="{{ s.id }}">
+                                <label>Categorizar Factor de Derrota:</label>
+                                <div class="grid-2">
+                                    <select name="reason">
+                                        <option value="Error de Predicción (Misplay)" {% if s.misplay == 'Error de Predicción (Misplay)' %}selected{% endif %}>Error de Predicción (Misplay)</option>
+                                        <option value="Matchup Desfavorable (Team Preview)" {% if s.misplay == 'Matchup Desfavorable (Team Preview)' %}selected{% endif %}>Matchup Desfavorable (Team Preview)</option>
+                                        <option value="RNG / Golpe Crítico Rival" {% if s.misplay == 'RNG / Golpe Crítico Rival' %}selected{% endif %}>RNG / Golpe Crítico Rival</option>
+                                        <option value="Fallo de Precisión / Miss" {% if s.misplay == 'Fallo de Precisión / Miss' %}selected{% endif %}>Fallo de Precisión / Miss</option>
+                                    </select>
+                                    <button type="submit" class="btn" style="margin-top: 0;">Guardar Factor</button>
+                                </div>
+                            </form>
                         {% endif %}
+
+                        {% for g in s.games %}
+                            <div class="game-badge">
+                                <b>Game {{ g[0] }} ({{ g[5] }}):</b> Yo: <i>{{ g[1] }}</i> | Rival: <i>{{ g[3] }}</i>
+                                <br><small style="color: var(--text-muted);">{{ g[11] | safe }}</small>
+                            </div>
+                        {% endfor %}
                     </div>
                 {% endfor %}
             {% else %}
-                <p style="color: var(--text-muted);">Sin partidas en la base de datos.</p>
+                <p style="color: var(--text-muted);">Sin series registradas.</p>
             {% endif %}
         </div>
     </div>
+
+    <script>
+        function calculateSpeed() {
+            const base = parseFloat(document.getElementById('baseSpeed').value) || 0;
+            const mod = parseFloat(document.getElementById('speedMod').value);
+            let real = (mod === -1) ? base : Math.floor(base * mod);
+            document.getElementById('realSpeed').innerText = real;
+        }
+    </script>
 </body>
 </html>
