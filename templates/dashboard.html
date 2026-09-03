@@ -281,6 +281,12 @@
                         {% if t.notes %}
                             <br><small style="color: var(--text-muted); font-style: italic;">Notas: {{ t.notes }}</small>
                         {% endif %}
+
+                        {% if t.raw_paste %}
+                            <div style="margin-top: 8px; font-size: 0.75em; color: var(--win-color);">
+                                ✅ <b>App Conectada:</b> Datos de EVs y Naturalezas almacenados en el motor local. Preparado para la Calculadora de Daño.
+                            </div>
+                        {% endif %}
                     </div>
                 {% else %}
                     <p style="color: var(--text-muted);">Sin equipos registrados.</p>
