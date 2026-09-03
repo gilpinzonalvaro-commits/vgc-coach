@@ -11,7 +11,6 @@ def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Tabla de Equipos con la nueva columna raw_paste
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS user_teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,16 +22,10 @@ def init_db():
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
-    
     try: cursor.execute("ALTER TABLE user_teams ADD COLUMN pokepaste_url TEXT DEFAULT ''")
     except: pass
     try: cursor.execute("ALTER TABLE user_teams ADD COLUMN raw_paste TEXT DEFAULT ''")
     except: pass
-
-    cursor.execute("SELECT COUNT(*) FROM user_teams")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) VALUES (?, ?, ?, ?, ?)", 
-                       ("Equipo Principal Polilla", "Flutter Mane, Incineroar, Rillaboom, Urshifu, Landorus, Mega Kangaskhan", "https://pokepast.es/80b953d850362ced", "Equipo base", ""))
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS series_matches (
@@ -75,13 +68,11 @@ def init_db():
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
-    
     conn.commit()
     conn.close()
 
 init_db()
 
-# NUEVO: Función para extraer los EVs y stats desde PokéPaste
 def fetch_pokepaste(url):
     if not url or "pokepast.es" not in url: 
         return ""
@@ -95,6 +86,33 @@ def fetch_pokepaste(url):
     except Exception as e:
         print(f"Error descargando paste: {e}")
     return ""
+
+# NUEVO: Traductor Matemático de Showdown
+def parse_showdown_team(raw_paste):
+    if not raw_paste: return []
+    mons = []
+    blocks = raw_paste.strip().split('\n\n')
+    for block in blocks:
+        lines = block.strip().split('\n')
+        if not lines: continue
+        
+        first_line = lines[0]
+        name_part = first_line.split('@')[0].strip()
+        item = first_line.split('@')[1].strip() if '@' in first_line else "Sin Objeto"
+        
+        # Limpiar género y nivel del nombre
+        name = name_part.replace("(M)", "").replace("(F)", "").strip()
+        if " (Level" in name: name = name.split(" (Level")[0].strip()
+
+        evs, nature, ability = "Sin EVs", "Neutra", "Desconocida"
+        
+        for line in lines[1:]:
+            if line.startswith("Ability:"): ability = line.replace("Ability:", "").strip()
+            elif line.startswith("EVs:"): evs = line.replace("EVs:", "").strip()
+            elif line.endswith("Nature"): nature = line.replace(" Nature", "").strip()
+            
+        mons.append({"name": name, "item": item, "ability": ability, "evs": evs, "nature": nature})
+    return mons
 
 def detect_archetype(log_text, opp_team):
     log_lower = log_text.lower()
@@ -129,8 +147,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         winner = data.get("winner", "")
         user_won = (winner.lower() == players.get(user_p, "").lower())
         
-        my_team, opp_team = [], []
-        my_leads, opp_leads, my_megas, opp_megas = [], [], [], []
+        my_team, opp_team, my_leads, opp_leads, my_megas, opp_megas = [], [], [], [], [], []
         turns = 0
         first_ko = None
         key_moves = []
@@ -201,9 +218,15 @@ def index():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Extraemos también el raw_paste
+    # Extraemos los equipos y procesamos el paste crudo
     cursor.execute("SELECT id, team_name, pokemon_list, pokepaste_url, notes, raw_paste FROM user_teams ORDER BY id DESC")
-    user_teams = [{"id": r[0], "name": r[1], "pokemon": r[2], "paste": r[3], "notes": r[4], "raw_paste": r[5]} for r in cursor.fetchall()]
+    user_teams = []
+    for r in cursor.fetchall():
+        parsed_mons = parse_showdown_team(r[5]) if r[5] else []
+        user_teams.append({
+            "id": r[0], "name": r[1], "pokemon": r[2], 
+            "paste": r[3], "notes": r[4], "raw_paste": r[5], "parsed_mons": parsed_mons
+        })
     
     cursor.execute("SELECT id, opponent, result, misplay_reason, notes, date FROM series_matches ORDER BY id DESC")
     series_rows = cursor.fetchall()
@@ -251,7 +274,7 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["Prepara tus equipos. La extracción de stats (EVs) para el calculador de daño ya está activa."]
+    coach_advice = ["El motor de daño y stats ya está calibrado con tus PokéPastes."]
     
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
@@ -263,13 +286,11 @@ def add_team():
     pokepaste_url = request.form.get('pokepaste_url', '')
     notes = request.form.get('notes', '')
     
-    # Extraer EVs e IVs al momento de guardar
     raw_paste = fetch_pokepaste(pokepaste_url)
     
     if team_name and pokemon_list:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        # Modificamos la query para guardar el raw_paste
         cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) VALUES (?, ?, ?, ?, ?)", 
                        (team_name, pokemon_list, pokepaste_url, notes, raw_paste))
         conn.commit()
@@ -278,7 +299,6 @@ def add_team():
 
 @app.route('/parse_replay', methods=['POST'])
 def parse_replay_route():
-    # Mantenemos esto igual, no cambia la lógica del replay
     url = request.form.get('replay_url')
     user_name = request.form.get('user_name') or DEFAULT_USER
     series_id = request.form.get('series_id')
