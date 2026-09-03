@@ -83,7 +83,7 @@ def fetch_pokepaste(url):
     except Exception as e: print(f"Error descargando paste: {e}")
     return ""
 
-# PARSER ULTRA-ROBUSTO CON NORMALIZACIÓN DE CARRIAGE RETURNS (\r\n)
+# PARSER MULTI-IDIOMA Y A PRUEBA DE FALLOS
 def parse_showdown_team(raw_paste):
     if not raw_paste: return []
     text = raw_paste.replace('\r\n', '\n').replace('\r', '\n').strip()
@@ -116,12 +116,14 @@ def parse_showdown_team(raw_paste):
         evs, nature, ability = "Sin EVs", "Neutra", "Desconocida"
         
         for line in lines[1:]:
-            if line.startswith("Ability:"):
-                ability = line.replace("Ability:", "").strip()
-            elif line.startswith("EVs:"):
-                evs = line.replace("EVs:", "").strip()
-            elif "Nature" in line:
-                nature = line.replace("Nature", "").strip()
+            line_lower = line.lower()
+            if line_lower.startswith("ability:") or line_lower.startswith("habilidad:"):
+                ability = line.split(":", 1)[1].strip()
+            elif line_lower.startswith("evs:"):
+                evs = line.split(":", 1)[1].strip()
+            elif "nature" in line_lower or "naturaleza" in line_lower:
+                clean_nat = line_lower.replace("nature", "").replace("naturaleza", "").strip()
+                nature = clean_nat.capitalize()
                 
         mons.append({
             "name": name,
@@ -300,13 +302,13 @@ def index():
     archetype_stats = [{"arch": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
     cursor.execute("SELECT opp_mega, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games WHERE opp_mega != 'Ninguna' GROUP BY opp_mega")
-    mega_stats = [{"mega": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
+    mega_stats = [{"mega": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchallfetchall() if cursor else []
     
     cursor.execute("SELECT SUM(cp) FROM tournaments")
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["Parser de PokéPaste actualizado a prueba de saltos de línea Windows/Mac."]
+    coach_advice = ["El motor de daño y stats ya está calibrado con tus PokéPastes (incluyendo naturalezas en ESP/ENG)."]
     
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
