@@ -5,97 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VGC World Championship Coach - polilla02</title>
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --accent-color: #3b82f6;
-            --purple-accent: #8b5cf6;
-            --text-color: #f8fafc;
-            --text-muted: #94a3b8;
-            --win-color: #22c55e;
-            --loss-color: #ef4444;
-            --border-color: #334155;
-            --gold-accent: #eab308;
-        }
-        body {
-            font-family: apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 16px;
-            display: flex;
-            justify-content: center;
-        }
+        :root { --bg-color: #0f172a; --card-bg: #1e293b; --accent-color: #3b82f6; --purple-accent: #8b5cf6; --text-color: #f8fafc; --text-muted: #94a3b8; --win-color: #22c55e; --loss-color: #ef4444; --border-color: #334155; --gold-accent: #eab308; }
+        body { font-family: apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; display: flex; justify-content: center; }
         .container { max-width: 650px; width: 100%; }
         h1 { text-align: center; color: var(--gold-accent); font-size: 1.5em; margin-bottom: 2px; }
         .subtitle { text-align: center; color: var(--text-muted); font-size: 0.85em; margin-bottom: 16px; }
-        
         .tabs { display: flex; gap: 4px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
-        .tab-btn {
-            flex: 1;
-            padding: 10px 6px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 0.78em;
-            cursor: pointer;
-            white-space: nowrap;
-            text-align: center;
-        }
+        .tab-btn { flex: 1; padding: 10px 6px; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 8px; font-weight: bold; font-size: 0.78em; cursor: pointer; white-space: nowrap; text-align: center; }
         .tab-btn.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
-            border: 1px solid var(--border-color);
-        }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border-color); }
         .form-group { margin-bottom: 10px; }
         label { display: block; margin-bottom: 4px; font-size: 0.8em; color: var(--text-muted); }
-        input, select, button, textarea {
-            width: 100%;
-            padding: 10px;
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: white;
-            box-sizing: border-box;
-            font-size: 0.88em;
-        }
+        input, select, button, textarea { width: 100%; padding: 10px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 6px; color: white; box-sizing: border-box; font-size: 0.88em; }
         .btn { background: var(--accent-color); font-weight: bold; border: none; cursor: pointer; margin-top: 6px; }
         .btn-gold { background: var(--gold-accent); color: #0f172a; }
-        .btn-link {
-            display: inline-block;
-            padding: 6px 10px;
-            background: #334155;
-            color: #f8fafc;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 0.8em;
-            font-weight: bold;
-            margin-top: 6px;
-        }
+        .btn-link { display: inline-block; padding: 6px 10px; background: #334155; color: #f8fafc; border-radius: 4px; text-decoration: none; font-size: 0.8em; font-weight: bold; margin-top: 6px; }
         .btn-link:hover { background: var(--accent-color); }
+        .btn-calc { background: var(--purple-accent); color: white; margin-left: 5px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .stat-box { text-align: center; padding: 12px; background: #0f172a; border-radius: 8px; }
         .stat-value { font-size: 1.4em; font-weight: bold; }
         .progress-bar-bg { background: #0f172a; height: 16px; border-radius: 8px; overflow: hidden; margin-top: 8px; }
         .progress-bar-fill { background: linear-gradient(90deg, #3b82f6, #eab308); height: 100%; width: 0%; transition: width 0.3s; }
-        
         .series-card { background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
         .series-card.Victoria { border-left: 4px solid var(--win-color); }
         .series-card.Derrota { border-left: 4px solid var(--loss-color); }
         .game-badge { background: #1e293b; padding: 8px; border-radius: 4px; margin-top: 6px; font-size: 0.82em; border-left: 3px solid var(--accent-color); }
         .coach-advice { background: #1e1b4b; border: 1px solid var(--purple-accent); padding: 12px; border-radius: 8px; font-size: 0.9em; }
-        
         table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 0.82em; }
         th, td { text-align: left; padding: 7px; border-bottom: 1px solid var(--border-color); }
         th { color: var(--text-muted); }
+        
+        /* Stats Visualizer */
+        .poke-stat-card { background: #0f172a; border: 1px dashed var(--border-color); padding: 8px; border-radius: 6px; margin-top: 6px; font-size: 0.85em; }
+        .ev-tag { background: #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; margin-right: 4px; display: inline-block; margin-top: 4px;}
     </style>
 </head>
 <body>
@@ -242,7 +187,7 @@
             </div>
         </div>
 
-        <!-- SECCIÓN 3: VER Y GESTIONAR MIS EQUIPOS CON POKÉPASTE -->
+        <!-- SECCIÓN 3: VER Y GESTIONAR MIS EQUIPOS -->
         <div id="tab-myteams" class="tab-content">
             <div class="card">
                 <h3>➕ Registrar Nuevo Equipo</h3>
@@ -252,39 +197,53 @@
                         <input type="text" name="team_name" required placeholder="Ej. Sun Balance Gen 9">
                     </div>
                     <div class="form-group">
-                        <label>Los 6 Pokémon del Equipo (Separados por comas)</label>
-                        <input type="text" name="pokemon_list" required placeholder="Flutter Mane, Incineroar, Rillaboom, Urshifu, Landorus, Mega Kangaskhan">
+                        <label>Los 6 Pokémon del Equipo</label>
+                        <input type="text" name="pokemon_list" required placeholder="Flutter Mane, Incineroar, ...">
                     </div>
                     <div class="form-group">
-                        <label>Enlace de PokéPaste (https://pokepast.es/...)</label>
-                        <input type="url" name="pokepaste_url" placeholder="https://pokepast.es/80b953d850362ced">
+                        <label>Enlace de PokéPaste (Crucial para extraer EVs)</label>
+                        <input type="url" name="pokepaste_url" placeholder="https://pokepast.es/...">
                     </div>
                     <div class="form-group">
                         <label>Notas Adicionales</label>
-                        <input type="text" name="notes" placeholder="Spread de EV o notas de estrategia...">
+                        <input type="text" name="notes" placeholder="Notas de estrategia...">
                     </div>
-                    <button type="submit" class="btn btn-gold">Guardar Equipo en la Plantilla</button>
+                    <button type="submit" class="btn btn-gold">Guardar e Importar EVs</button>
                 </form>
             </div>
 
             <div class="card">
-                <h3>🛡️ Mis Equipos Registrados</h3>
+                <h3>🛡️ Mis Equipos (Laboratorio de Stats)</h3>
                 {% for t in user_teams %}
-                    <div style="background: #0f172a; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid var(--accent-color);">
-                        <b style="font-size: 1.05em; color: var(--gold-accent);">{{ t.name }}</b><br>
-                        <small style="color: #cbd5e1;">{{ t.pokemon }}</small><br>
+                    <div style="background: #1e293b; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid var(--accent-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <b style="font-size: 1.1em; color: var(--gold-accent);">{{ t.name }}</b>
+                            <!-- BOTÓN DIRECTO A LA CALCULADORA NCP -->
+                            <a href="https://nerd-of-now.github.io/NCP-VGC-Damage-Calculator/" target="_blank" class="btn-link btn-calc">⚔️ Calculadora NCP</a>
+                        </div>
                         
-                        {% if t.paste %}
-                            <a href="{{ t.paste }}" target="_blank" class="btn-link">🔗 Abrir PokéPaste</a>
-                        {% endif %}
+                        <div style="margin-top: 8px; margin-bottom: 8px;">
+                            {% if t.paste %}
+                                <a href="{{ t.paste }}" target="_blank" class="btn-link">🔗 Abrir PokéPaste</a>
+                            {% endif %}
+                            <button class="btn-link" onclick="copiarPaste(`{{ t.raw_paste }}`)">📋 Copiar Equipo para Importar</button>
+                        </div>
                         
-                        {% if t.notes %}
-                            <br><small style="color: var(--text-muted); font-style: italic;">Notas: {{ t.notes }}</small>
-                        {% endif %}
-
-                        {% if t.raw_paste %}
-                            <div style="margin-top: 8px; font-size: 0.75em; color: var(--win-color);">
-                                ✅ <b>App Conectada:</b> Datos de EVs y Naturalezas almacenados en el motor local. Preparado para la Calculadora de Daño.
+                        <!-- VISOR DE STATS Y EVs TRADUCIDOS -->
+                        {% if t.parsed_mons %}
+                            <div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                                <h4 style="margin: 0 0 6px 0; color: var(--text-muted);">Auditoría de Stats (Extraído Automáticamente)</h4>
+                                <div class="grid-2">
+                                {% for m in t.parsed_mons %}
+                                    <div class="poke-stat-card">
+                                        <b style="color: white;">{{ m.name }}</b> @ <span style="color: var(--accent-color);">{{ m.item }}</span><br>
+                                        <small style="color: var(--text-muted);">Nat: {{ m.nature }} | Hab: {{ m.ability }}</small><br>
+                                        {% for ev in m.evs.split(' / ') %}
+                                            <span class="ev-tag">{{ ev }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% endfor %}
+                                </div>
                             </div>
                         {% endif %}
                     </div>
@@ -373,6 +332,13 @@
             const mod = parseFloat(document.getElementById('speedMod').value);
             let real = (mod === -1) ? base : Math.floor(base * mod);
             document.getElementById('realSpeed').innerText = real;
+        }
+
+        function copiarPaste(texto) {
+            if (!texto) { alert("No hay datos de paste guardados."); return; }
+            navigator.clipboard.writeText(texto).then(() => {
+                alert("¡Equipo copiado! Ya puedes pegarlo (Ctrl+V) en Import/Export de la Calculadora NCP.");
+            });
         }
     </script>
 </body>
