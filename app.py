@@ -11,6 +11,24 @@ def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
+    # Tabla de Equipos del Usuario (polilla02)
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_teams (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_name TEXT UNIQUE,
+        pokemon_list TEXT,
+        notes TEXT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    
+    # Insertar un equipo por defecto si está vacía
+    cursor.execute("SELECT COUNT(*) FROM user_teams")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO user_teams (team_name, pokemon_list, notes) VALUES (?, ?, ?)", 
+                       ("Equipo Principal Polilla", "Flutter Mane, Incineroar, Rillaboom, Urshifu, Landorus, Mega Kangaskhan", "Equipo base para Ladder/Torneos"))
+
+    # Tabla de Series BO3
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS series_matches (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,11 +40,13 @@ def init_db():
     )
     ''')
 
+    # Tabla de Games individuales
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         series_id INTEGER,
         game_num INTEGER,
+        team_name TEXT DEFAULT 'Equipo Principal Polilla',
         my_lead TEXT,
         my_back TEXT,
         opp_lead TEXT,
@@ -43,6 +63,13 @@ def init_db():
     )
     ''')
 
+    # Migración por si la columna team_name no existía
+    try:
+        cursor.execute("ALTER TABLE games ADD COLUMN team_name TEXT DEFAULT 'Equipo Principal Polilla'")
+    except:
+        pass
+
+    # Tabla de Torneos y CP
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS tournaments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,8 +155,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                     slot = parts[2] if len(parts) > 2 else ""
                     mega_mon = ""
                     for part in parts:
-                        if "Mega" in part:
-                            mega_mon = part.split(",")[0].strip()
+                        if "Mega" in part: mega_mon = part.split(",")[0].strip()
                     if mega_mon:
                         if slot.startswith(user_p):
                             if mega_mon not in my_megas: my_megas.append(mega_mon)
@@ -137,7 +163,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                             if mega_mon not in opp_megas: opp_megas.append(mega_mon)
                 elif parts[1] == "faint" and not first_ko:
                     fainted_mon = parts[2].split(":")[1].strip() if ":" in parts[2] else parts[2]
-                    side = "Tuyo (polilla02)" if parts[2].startswith(user_p) else "Rival"
+                    side = f"Tuyo ({DEFAULT_USER})" if parts[2].startswith(user_p) else "Rival"
                     first_ko = f"{fainted_mon} ({side}, T{turns})"
                 elif parts[1] == "move" and len(parts) > 3:
                     move = parts[3]
@@ -180,6 +206,11 @@ def index():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
+    # 1. Mis Equipos
+    cursor.execute("SELECT id, team_name, pokemon_list, notes FROM user_teams ORDER BY id DESC")
+    user_teams = [{"id": r[0], "name": r[1], "pokemon": r[2], "notes": r[3]} for r in cursor.fetchall()]
+    
+    # 2. Series BO3 y Games
     cursor.execute("SELECT id, opponent, result, misplay_reason, notes, date FROM series_matches ORDER BY id DESC")
     series_rows = cursor.fetchall()
     
@@ -189,18 +220,15 @@ def index():
     
     for s in series_rows:
         s_id, opp, s_res, misplay, notes, date = s
-        cursor.execute("SELECT game_num, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary FROM games WHERE series_id = ? ORDER BY game_num ASC", (s_id,))
+        cursor.execute("SELECT game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary FROM games WHERE series_id = ? ORDER BY game_num ASC", (s_id,))
         games = cursor.fetchall()
         
-        g_wins = sum(1 for g in games if g[5] == 'Victoria')
-        g_losses = sum(1 for g in games if g[5] == 'Derrota')
+        g_wins = sum(1 for g in games if g[6] == 'Victoria')
+        g_losses = sum(1 for g in games if g[6] == 'Derrota')
         
-        if g_wins >= 2:
-            calc_result = "Victoria (BO3)"
-        elif g_losses >= 2:
-            calc_result = "Derrota (BO3)"
-        else:
-            calc_result = f"En curso ({g_wins}-{g_losses})"
+        if g_wins >= 2: calc_result = "Victoria (BO3)"
+        elif g_losses >= 2: calc_result = "Derrota (BO3)"
+        else: calc_result = f"En curso ({g_wins}-{g_losses})"
             
         if calc_result == "Victoria (BO3)": total_series_wins += 1
         
@@ -209,61 +237,81 @@ def index():
             "misplay": misplay, "notes": notes, "date": date, "games": games
         })
     
+    # 3. Métricas Estadísticas Globales
     series_winrate = round((total_series_wins / total_series_count * 100), 1) if total_series_count > 0 else 0
     
     cursor.execute("SELECT my_lead, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY my_lead HAVING COUNT(*) >= 1")
     lead_stats = [{"lead": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
+    cursor.execute("SELECT misplay_reason, COUNT(*) FROM series_matches WHERE result LIKE 'Derrota%' GROUP BY misplay_reason")
+    misplay_stats = [{"reason": r[0], "count": r[1]} for r in cursor.fetchall()]
+    
+    # 4. Análisis de Mis Equipos (Rendimiento por plantilla usada)
+    cursor.execute("SELECT team_name, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY team_name")
+    team_performance = [{"name": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
+    
+    # 5. Análisis de Equipos Rivales (Arquetipos y Megas enemigas)
     cursor.execute("SELECT archetype, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY archetype")
     archetype_stats = [{"arch": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
     cursor.execute("SELECT opp_mega, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games WHERE opp_mega != 'Ninguna' GROUP BY opp_mega")
     mega_stats = [{"mega": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
-    cursor.execute("SELECT misplay_reason, COUNT(*) FROM series_matches WHERE result LIKE 'Derrota%' GROUP BY misplay_reason")
-    misplay_stats = [{"reason": r[0], "count": r[1]} for r in cursor.fetchall()]
-    
+    # Tracker de CP
     cursor.execute("SELECT SUM(cp) FROM tournaments")
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
+    # Coach Advice
     coach_advice = []
     if total_series_count >= 1:
-        if series_winrate >= 65:
-            coach_advice.append("🏆 <b>Rendimiento de Nivel Mundial:</b> Tu tasa de victoria en Series BO3 es sólida. Mantén la disciplina con tu Mega en Game 2.")
-        elif series_winrate >= 50:
-            coach_advice.append("⚖️ <b>Nivel Competitivo Regional:</b> Ganando series, pero requieres afinar la respuesta contra la Mega clave del rival.")
-        else:
-            coach_advice.append("⚠️ <b>Ajuste Crítico de Setup:</b> Winrate BO3 bajo el 50%. Revisa la selección de Leads y la cobertura contra Megas agresivas.")
-            
+        if series_winrate >= 65: coach_advice.append("🏆 <b>Rendimiento de Nivel Mundial:</b> Winrate en BO3 óptimo.")
+        else: coach_advice.append("⚖️ <b>Enfoque Competitivo:</b> Revisa las métricas por equipo y las derrotas por misplay.")
+        
         cursor.execute("SELECT opp_mega FROM games WHERE result = 'Derrota' AND opp_mega != 'Ninguna'")
         loss_megas = [r[0] for r in cursor.fetchall()]
         if loss_megas:
             common_mega = max(set(loss_megas), key=loss_megas.count)
-            coach_advice.append(f"🔥 <b>Amenaza Crítica de Metagame:</b> Presentas tu mayor porcentaje de derrotas frente a <b>{common_mega}</b>. Ajusta tu lead defensivo o el Speed Control contra ella.")
+            coach_advice.append(f"🔥 <b>Amenaza Rival Detectada:</b> Tu principal problema es contra <b>{common_mega}</b>.")
     else:
-        coach_advice.append("Registra combates BO3 para activar el diagnóstico de rendimiento enfocado en Megaevoluciones.")
+        coach_advice.append("Registra combates BO3 para activar el diagnóstico táctico.")
 
     conn.close()
     return render_template('dashboard.html',
+                           user_teams=user_teams,
                            series_list=series_list,
                            series_winrate=series_winrate,
                            total_series_count=total_series_count,
                            total_series_wins=total_series_wins,
                            lead_stats=lead_stats,
+                           misplay_stats=misplay_stats,
+                           team_performance=team_performance,
                            archetype_stats=archetype_stats,
                            mega_stats=mega_stats,
-                           misplay_stats=misplay_stats,
                            total_cp=total_cp,
                            cp_pct=cp_pct,
                            coach_advice="<br><br>".join(coach_advice),
                            default_user=DEFAULT_USER)
+
+@app.route('/add_team', methods=['POST'])
+def add_team():
+    team_name = request.form.get('team_name')
+    pokemon_list = request.form.get('pokemon_list')
+    notes = request.form.get('notes', '')
+    if team_name and pokemon_list:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, notes) VALUES (?, ?, ?)", (team_name, pokemon_list, notes))
+        conn.commit()
+        conn.close()
+    return redirect(url_for('index'))
 
 @app.route('/parse_replay', methods=['POST'])
 def parse_replay_route():
     url = request.form.get('replay_url')
     user_name = request.form.get('user_name') or DEFAULT_USER
     series_id = request.form.get('series_id')
+    team_name = request.form.get('team_name') or 'Equipo Principal Polilla'
     
     parsed = parse_showdown_replay(url, user_name)
     if parsed:
@@ -278,19 +326,16 @@ def parse_replay_route():
         game_num = cursor.fetchone()[0] + 1
         
         cursor.execute('''
-            INSERT INTO games (series_id, game_num, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, first_ko, replay_url, tactical_summary)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (series_id, game_num, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['first_ko'], parsed['replay_url'], parsed['tactical_summary']))
+            INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, first_ko, replay_url, tactical_summary)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (series_id, game_num, team_name, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['first_ko'], parsed['replay_url'], parsed['tactical_summary']))
         
         cursor.execute("SELECT result FROM games WHERE series_id = ?", (series_id,))
         results = [r[0] for r in cursor.fetchall()]
-        wins = results.count('Victoria')
-        losses = results.count('Derrota')
+        wins, losses = results.count('Victoria'), results.count('Derrota')
         
-        if wins >= 2:
-            cursor.execute("UPDATE series_matches SET result = 'Victoria (BO3)' WHERE id = ?", (series_id,))
-        elif losses >= 2:
-            cursor.execute("UPDATE series_matches SET result = 'Derrota (BO3)' WHERE id = ?", (series_id,))
+        if wins >= 2: cursor.execute("UPDATE series_matches SET result = 'Victoria (BO3)' WHERE id = ?", (series_id,))
+        elif losses >= 2: cursor.execute("UPDATE series_matches SET result = 'Derrota (BO3)' WHERE id = ?", (series_id,))
             
         conn.commit()
         conn.close()
@@ -301,10 +346,9 @@ def update_misplay():
     series_id = request.form.get('series_id')
     reason = request.form.get('reason')
     notes = request.form.get('notes', '')
-    
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("UPDATE series_matches SET misplay_reason = ?, notes = ? WHERE id = ?", (series_id, reason, notes))
+    cursor.execute("UPDATE series_matches SET misplay_reason = ?, notes = ? WHERE id = ?", (reason, notes, series_id))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
