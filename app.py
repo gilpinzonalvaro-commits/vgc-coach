@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 import requests
 from flask import Flask, render_template, request, redirect, url_for
@@ -82,24 +83,53 @@ def fetch_pokepaste(url):
     except Exception as e: print(f"Error descargando paste: {e}")
     return ""
 
+# PARSER ULTRA-ROBUSTO CON NORMALIZACIÓN DE CARRIAGE RETURNS (\r\n)
 def parse_showdown_team(raw_paste):
     if not raw_paste: return []
+    text = raw_paste.replace('\r\n', '\n').replace('\r', '\n').strip()
+    if not text: return []
+    
     mons = []
-    blocks = raw_paste.strip().split('\n\n')
+    blocks = re.split(r'\n\s*\n', text)
+    
     for block in blocks:
-        lines = block.strip().split('\n')
+        lines = [l.strip() for l in block.split('\n') if l.strip()]
         if not lines: continue
+        
         first_line = lines[0]
-        name_part = first_line.split('@')[0].strip()
-        item = first_line.split('@')[1].strip() if '@' in first_line else "Sin Objeto"
-        name = name_part.replace("(M)", "").replace("(F)", "").strip()
-        if " (Level" in name: name = name.split(" (Level")[0].strip()
+        if '@' in first_line:
+            name_part, item = first_line.split('@', 1)
+            item = item.strip()
+        else:
+            name_part = first_line.strip()
+            item = "Sin Objeto"
+            
+        if '(' in name_part and ')' in name_part:
+            inside = name_part[name_part.find('(')+1 : name_part.find(')')].strip()
+            if inside in ["M", "F"]:
+                name = name_part.split('(')[0].strip()
+            else:
+                name = inside
+        else:
+            name = name_part.strip()
+            
         evs, nature, ability = "Sin EVs", "Neutra", "Desconocida"
+        
         for line in lines[1:]:
-            if line.startswith("Ability:"): ability = line.replace("Ability:", "").strip()
-            elif line.startswith("EVs:"): evs = line.replace("EVs:", "").strip()
-            elif line.endswith("Nature"): nature = line.replace(" Nature", "").strip()
-        mons.append({"name": name, "item": item, "ability": ability, "evs": evs, "nature": nature})
+            if line.startswith("Ability:"):
+                ability = line.replace("Ability:", "").strip()
+            elif line.startswith("EVs:"):
+                evs = line.replace("EVs:", "").strip()
+            elif "Nature" in line:
+                nature = line.replace("Nature", "").strip()
+                
+        mons.append({
+            "name": name,
+            "item": item,
+            "ability": ability,
+            "evs": evs,
+            "nature": nature
+        })
     return mons
 
 def detect_archetype(log_text, opp_team):
@@ -112,7 +142,6 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
-# --- EL PARSER HA SIDO BLINDADO CONTRA ERRORES DE JUGADOR ---
 def parse_showdown_replay(url, user_name=DEFAULT_USER):
     try:
         clean_url = url.split("?")[0].strip()
@@ -129,8 +158,6 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                 
         players = {}
         user_p = "p1"
-        
-        # 1. Normalización estricta de tu nombre (sin espacios ni símbolos)
         normalized_user = "".join(e for e in user_name.lower() if e.isalnum())
         winner_name = data.get("winner", "")
         
@@ -139,18 +166,13 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
             if len(parts) > 3 and parts[1] == "player":
                 p_id, p_name = parts[2], parts[3]
                 players[p_id] = p_name
-                # Buscamos a polilla02 ignorando formatos raros
                 norm_pname = "".join(e for e in p_name.lower() if e.isalnum())
                 if normalized_user in norm_pname:
                     user_p = p_id
-            
-            # 2. Detección de ganador 100% real leyendo el veredicto final del log
             if len(parts) > 2 and parts[1] == "win":
                 winner_name = parts[2]
                 
         opp_p = "p2" if user_p == "p1" else "p1"
-        
-        # 3. Comprobación de victoria a prueba de fallos
         user_won = False
         if winner_name:
             norm_winner = "".join(e for e in winner_name.lower() if e.isalnum())
@@ -189,7 +211,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                             if mega_mon not in opp_megas: opp_megas.append(mega_mon)
                 elif parts[1] == "faint" and not first_ko:
                     fainted_mon = parts[2].split(":")[1].strip() if ":" in parts[2] else parts[2]
-                    side = f"Tuyo" if parts[2].startswith(user_p) else "Rival"
+                    side = "Tuyo" if parts[2].startswith(user_p) else "Rival"
                     first_ko = f"{fainted_mon} ({side}, T{turns})"
                 elif parts[1] == "move" and len(parts) > 3:
                     move = parts[3]
@@ -284,7 +306,7 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["El motor de análisis está configurado. ¡A jugar!"]
+    coach_advice = ["Parser de PokéPaste actualizado a prueba de saltos de línea Windows/Mac."]
     
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
@@ -344,7 +366,6 @@ def update_misplay():
     conn.close()
     return redirect(url_for('index'))
 
-# --- NUEVA FUNCIÓN PARA BORRAR PARTIDAS ROTAS ---
 @app.route('/delete_series', methods=['POST'])
 def delete_series():
     series_id = request.form.get('series_id')
