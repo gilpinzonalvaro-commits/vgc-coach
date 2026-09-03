@@ -11,7 +11,6 @@ def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Tabla de Series BO3 (Partida completa contra un rival)
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS series_matches (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,7 +22,6 @@ def init_db():
     )
     ''')
 
-    # Tabla de Games individuales con desglose de Megaevoluciones
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,14 +43,6 @@ def init_db():
     )
     ''')
 
-    # Migraciones automáticas por si la tabla ya existía
-    for col in ["my_mega TEXT DEFAULT 'Ninguna'", "opp_mega TEXT DEFAULT 'Ninguna'"]:
-        try:
-            cursor.execute(f"ALTER TABLE games ADD COLUMN {col}")
-        except:
-            pass
-
-    # Tabla de Torneos y CP
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS tournaments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +58,6 @@ def init_db():
 init_db()
 
 def detect_archetype(log_text, opp_team):
-    """Detecta el arquetipo rival basándose en movimientos y Pokémon del log."""
     log_lower = log_text.lower()
     team_str = " ".join(opp_team).lower()
     
@@ -135,7 +124,6 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                         my_leads.append(mon)
                     elif slot.startswith(opp_p) and mon not in opp_leads and len(opp_leads) < 2:
                         opp_leads.append(mon)
-                # Detección de Megaevolución diferenciada (Propia vs Rival)
                 elif parts[1] in ["detailschange", "-mega"] and "Mega" in line:
                     slot = parts[2] if len(parts) > 2 else ""
                     mega_mon = ""
@@ -192,7 +180,6 @@ def index():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Obtener Series BO3 con sus Games anidados
     cursor.execute("SELECT id, opponent, result, misplay_reason, notes, date FROM series_matches ORDER BY id DESC")
     series_rows = cursor.fetchall()
     
@@ -213,7 +200,7 @@ def index():
         elif g_losses >= 2:
             calc_result = "Derrota (BO3)"
         else:
-            calc_result = f"En cursor ({g_wins}-{g_losses})"
+            calc_result = f"En curso ({g_wins}-{g_losses})"
             
         if calc_result == "Victoria (BO3)": total_series_wins += 1
         
@@ -222,7 +209,6 @@ def index():
             "misplay": misplay, "notes": notes, "date": date, "games": games
         })
     
-    # Métricas
     series_winrate = round((total_series_wins / total_series_count * 100), 1) if total_series_count > 0 else 0
     
     cursor.execute("SELECT my_lead, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY my_lead HAVING COUNT(*) >= 1")
@@ -231,19 +217,16 @@ def index():
     cursor.execute("SELECT archetype, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY archetype")
     archetype_stats = [{"arch": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
-    # Análisis táctico de Megas Rivales
     cursor.execute("SELECT opp_mega, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games WHERE opp_mega != 'Ninguna' GROUP BY opp_mega")
     mega_stats = [{"mega": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
     cursor.execute("SELECT misplay_reason, COUNT(*) FROM series_matches WHERE result LIKE 'Derrota%' GROUP BY misplay_reason")
     misplay_stats = [{"reason": r[0], "count": r[1]} for r in cursor.fetchall()]
     
-    # Tracker de CP
     cursor.execute("SELECT SUM(cp) FROM tournaments")
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    # Diagnóstico del Coach enfocado en Megas
     coach_advice = []
     if total_series_count >= 1:
         if series_winrate >= 65:
@@ -253,7 +236,6 @@ def index():
         else:
             coach_advice.append("⚠️ <b>Ajuste Crítico de Setup:</b> Winrate BO3 bajo el 50%. Revisa la selección de Leads y la cobertura contra Megas agresivas.")
             
-        # Detectar la Mega rival más problemática
         cursor.execute("SELECT opp_mega FROM games WHERE result = 'Derrota' AND opp_mega != 'Ninguna'")
         loss_megas = [r[0] for r in cursor.fetchall()]
         if loss_megas:
@@ -322,7 +304,7 @@ def update_misplay():
     
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("UPDATE series_matches SET misplay_reason = ?, notes = ? WHERE id = ?", (reason, notes, series_id))
+    cursor.execute("UPDATE series_matches SET misplay_reason = ?, notes = ? WHERE id = ?", (series_id, reason, notes))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
