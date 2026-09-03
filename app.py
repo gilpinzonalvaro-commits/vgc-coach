@@ -83,7 +83,6 @@ def fetch_pokepaste(url):
     except Exception as e: print(f"Error descargando paste: {e}")
     return ""
 
-# PARSER MULTI-IDIOMA Y A PRUEBA DE FALLOS
 def parse_showdown_team(raw_paste):
     if not raw_paste: return []
     text = raw_paste.replace('\r\n', '\n').replace('\r', '\n').strip()
@@ -302,7 +301,7 @@ def index():
     archetype_stats = [{"arch": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
     cursor.execute("SELECT opp_mega, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games WHERE opp_mega != 'Ninguna' GROUP BY opp_mega")
-    mega_stats = [{"mega": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchallfetchall() if cursor else []
+    mega_stats = [{"mega": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
     cursor.execute("SELECT SUM(cp) FROM tournaments")
     total_cp = cursor.fetchone()[0] or 0
