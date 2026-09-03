@@ -27,62 +27,63 @@
             justify-content: center;
         }
         .container { max-width: 650px; width: 100%; }
-        h1 { text-align: center; color: var(--gold-accent); font-size: 1.6em; margin-bottom: 4px; }
-        .subtitle { text-align: center; color: var(--text-muted); font-size: 0.9em; margin-bottom: 20px; }
+        h1 { text-align: center; color: var(--gold-accent); font-size: 1.5em; margin-bottom: 2px; }
+        .subtitle { text-align: center; color: var(--text-muted); font-size: 0.85em; margin-bottom: 16px; }
+        
+        /* Navegación por Pestañas */
+        .tabs { display: flex; gap: 4px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+        .tab-btn {
+            flex: 1;
+            padding: 10px 6px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.78em;
+            cursor: pointer;
+            white-space: nowrap;
+            text-align: center;
+        }
+        .tab-btn.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
         .card {
             background: var(--card-bg);
             border-radius: 12px;
-            padding: 18px;
+            padding: 16px;
             margin-bottom: 16px;
             border: 1px solid var(--border-color);
         }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; margin-bottom: 4px; font-size: 0.85em; color: var(--text-muted); }
+        .form-group { margin-bottom: 10px; }
+        label { display: block; margin-bottom: 4px; font-size: 0.8em; color: var(--text-muted); }
         input, select, button, textarea {
             width: 100%;
-            padding: 11px;
+            padding: 10px;
             background: #0f172a;
             border: 1px solid var(--border-color);
             border-radius: 6px;
             color: white;
             box-sizing: border-box;
-            font-size: 0.9em;
+            font-size: 0.88em;
         }
-        .btn {
-            background: var(--accent-color);
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-            margin-top: 6px;
-        }
+        .btn { background: var(--accent-color); font-weight: bold; border: none; cursor: pointer; margin-top: 6px; }
         .btn-gold { background: var(--gold-accent); color: #0f172a; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .stat-box { text-align: center; padding: 12px; background: #0f172a; border-radius: 8px; }
-        .stat-value { font-size: 1.5em; font-weight: bold; }
-        .progress-bar-bg { background: #0f172a; height: 18px; border-radius: 9px; overflow: hidden; margin-top: 8px; }
+        .stat-value { font-size: 1.4em; font-weight: bold; }
+        .progress-bar-bg { background: #0f172a; height: 16px; border-radius: 8px; overflow: hidden; margin-top: 8px; }
         .progress-bar-fill { background: linear-gradient(90deg, #3b82f6, #eab308); height: 100%; width: 0%; transition: width 0.3s; }
         
-        .series-card {
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 14px;
-            margin-bottom: 12px;
-        }
-        .series-card.Victoria { border-left: 5px solid var(--win-color); }
-        .series-card.Derrota { border-left: 5px solid var(--loss-color); }
-        .game-badge {
-            background: #1e293b;
-            padding: 8px;
-            border-radius: 4px;
-            margin-top: 6px;
-            font-size: 0.85em;
-            border-left: 3px solid var(--accent-color);
-        }
-        .coach-advice { background: #1e1b4b; border: 1px solid var(--purple-accent); padding: 14px; border-radius: 8px; font-size: 0.95em; }
+        .series-card { background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+        .series-card.Victoria { border-left: 4px solid var(--win-color); }
+        .series-card.Derrota { border-left: 4px solid var(--loss-color); }
+        .game-badge { background: #1e293b; padding: 8px; border-radius: 4px; margin-top: 6px; font-size: 0.82em; border-left: 3px solid var(--accent-color); }
+        .coach-advice { background: #1e1b4b; border: 1px solid var(--purple-accent); padding: 12px; border-radius: 8px; font-size: 0.9em; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.85em; }
-        th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color); }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 0.82em; }
+        th, td { text-align: left; padding: 7px; border-bottom: 1px solid var(--border-color); }
         th { color: var(--text-muted); }
     </style>
 </head>
@@ -91,175 +92,255 @@
         <h1>👑 VGC Coach: Camino al Mundial</h1>
         <div class="subtitle">Entrenador Táctico | Usuario: <b>{{ default_user }}</b></div>
         
-        <!-- Importar Game BO3 -->
-        <div class="card">
-            <h3>⚡ Registrar Game de Showdown</h3>
-            <form action="/parse_replay" method="POST">
-                <div class="form-group">
-                    <label>Enlace del Replay</label>
-                    <input type="url" name="replay_url" required placeholder="https://replay.pokemonshowdown.com/gen9vgc...">
-                </div>
-                <div class="grid-2">
+        <!-- Pestañas de Navegación de las 5 Secciones -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="openTab('tab-matches', this)">🕹️ Partidas</button>
+            <button class="tab-btn" onclick="openTab('tab-stats', this)">📊 Estadísticas</button>
+            <button class="tab-btn" onclick="openTab('tab-myteams', this)">🛡️ Mis Equipos</button>
+            <button class="tab-btn" onclick="openTab('tab-teamanalysis', this)">📈 Mi Rendimiento</button>
+            <button class="tab-btn" onclick="openTab('tab-rivals', this)">🐉 Rivales</button>
+        </div>
+
+        <!-- SECCIÓN 1: ANÁLISIS POR PARTIDA -->
+        <div id="tab-matches" class="tab-content active">
+            <div class="card">
+                <h3>⚡ Registrar Game de Showdown</h3>
+                <form action="/parse_replay" method="POST">
                     <div class="form-group">
-                        <label>Asignar a Serie BO3</label>
-                        <select name="series_id">
-                            <option value="new">➕ Nueva Serie BO3 (Nuevo Rival)</option>
-                            {% for s in series_list %}
-                                {% if 'BO3' not in s.result %}
-                                    <option value="{{ s.id }}">Vs {{ s.opponent }} (Actualmente {{ s.result }})</option>
-                                {% endif %}
+                        <label>Enlace del Replay de Showdown</label>
+                        <input type="url" name="replay_url" required placeholder="https://replay.pokemonshowdown.com/gen9vgc...">
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Asignar a Serie BO3</label>
+                            <select name="series_id">
+                                <option value="new">➕ Nueva Serie BO3 (Nuevo Rival)</option>
+                                {% for s in series_list %}
+                                    {% if 'BO3' not in s.result %}
+                                        <option value="{{ s.id }}">Vs {{ s.opponent }} (Actualmente {{ s.result }})</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Mi Equipo Usado</label>
+                            <select name="team_name">
+                                {% for t in user_teams %}
+                                    <option value="{{ t.name }}">{{ t.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-gold">Procesar Game e Integrar en BO3</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>🧠 Diagnóstico Táctico del Coach</h3>
+                <div class="coach-advice">{{ coach_advice | safe }}</div>
+            </div>
+
+            <div class="card">
+                <h3>📜 Historial de Series BO3 y Games</h3>
+                {% if series_list %}
+                    {% for s in series_list %}
+                        <div class="series-card {{ s.result.split(' ')[0] }}">
+                            <div style="display: flex; justify-content: space-between;">
+                                <b>vs {{ s.opponent }}</b>
+                                <span style="font-weight: bold;">{{ s.result }}</span>
+                            </div>
+                            <small style="color: var(--text-muted);">Fecha: {{ s.date[:10] }}</small>
+                            
+                            {% if 'Derrota' in s.result %}
+                                <form action="/update_misplay" method="POST" style="margin-top: 6px; background: #1e293b; padding: 6px; border-radius: 4px;">
+                                    <input type="hidden" name="series_id" value="{{ s.id }}">
+                                    <label>Categorizar Factor de Derrota:</label>
+                                    <div class="grid-2">
+                                        <select name="reason">
+                                            <option value="Error de Predicción (Misplay)" {% if s.misplay == 'Error de Predicción (Misplay)' %}selected{% endif %}>Error de Predicción</option>
+                                            <option value="Matchup Desfavorable (Team Preview)" {% if s.misplay == 'Matchup Desfavorable (Team Preview)' %}selected{% endif %}>Matchup Desfavorable</option>
+                                            <option value="RNG / Golpe Crítico Rival" {% if s.misplay == 'RNG / Golpe Crítico Rival' %}selected{% endif %}>RNG / Golpe Crítico</option>
+                                            <option value="Fallo de Precisión / Miss" {% if s.misplay == 'Fallo de Precisión / Miss' %}selected{% endif %}>Fallo de Precisión</option>
+                                        </select>
+                                        <button type="submit" class="btn" style="margin-top: 0;">Guardar</button>
+                                    </div>
+                                </form>
+                            {% endif %}
+
+                            {% for g in s.games %}
+                                <div class="game-badge">
+                                    <b>Game {{ g[0] }} ({{ g[6] }}):</b> [{{ g[1] }}] Yo: <i>{{ g[2] }}</i> | Rival: <i>{{ g[4] }}</i>
+                                    <br><small style="color: var(--text-muted);">{{ g[12] | safe }}</small>
+                                </div>
                             {% endfor %}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Jugador (Tu Nick)</label>
-                        <input type="text" name="user_name" value="{{ default_user }}">
-                    </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--text-muted);">Sin series registradas.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: REVISIÓN ESTADÍSTICA -->
+        <div id="tab-stats" class="tab-content">
+            <div class="card grid-2">
+                <div class="stat-box">
+                    <div>Winrate BO3</div>
+                    <div class="stat-value" style="color: var(--win-color);">{{ series_winrate }}%</div>
                 </div>
-                <button type="submit" class="btn btn-gold">Procesar Game e Integrar en BO3</button>
-            </form>
-        </div>
-
-        <!-- Diagnóstico del Coach -->
-        <div class="card">
-            <h3>🧠 Diagnóstico del Coach para el Mundial</h3>
-            <div class="coach-advice">
-                {{ coach_advice | safe }}
-            </div>
-        </div>
-
-        <!-- Estadísticas BO3 -->
-        <div class="card grid-2">
-            <div class="stat-box">
-                <div>Winrate BO3</div>
-                <div class="stat-value" style="color: var(--win-color);">{{ series_winrate }}%</div>
-            </div>
-            <div class="stat-box">
-                <div>Series Récord (V/D)</div>
-                <div class="stat-value">{{ total_series_wins }} / {{ total_series_count - total_series_wins }}</div>
-            </div>
-        </div>
-
-        <!-- Calculadora de Speed Tiers -->
-        <div class="card">
-            <h3>⚡ Calculadora de Speed Tiers</h3>
-            <div class="grid-2">
-                <div>
-                    <label>Base Speed Stat:</label>
-                    <input type="number" id="baseSpeed" value="136">
-                </div>
-                <div>
-                    <label>Modificador:</label>
-                    <select id="speedMod" onchange="calculateSpeed()">
-                        <option value="1">Normal (x1.0)</option>
-                        <option value="2">Tailwind (x2.0)</option>
-                        <option value="1.5">Choice Scarf (x1.5)</option>
-                        <option value="0.67">-1 Velocidad (x0.67)</option>
-                        <option value="-1">Trick Room (Invertido)</option>
-                    </select>
+                <div class="stat-box">
+                    <div>Series (V/D)</div>
+                    <div class="stat-value">{{ total_series_wins }} / {{ total_series_count - total_series_wins }}</div>
                 </div>
             </div>
-            <div style="text-align: center; margin-top: 10px; padding: 10px; background: #0f172a; border-radius: 6px;">
-                <b>Velocidad Real: <span id="realSpeed" style="color: var(--gold-accent); font-size: 1.3em;">136</span></b>
-            </div>
-        </div>
 
-        <!-- Métricas Tácticas -->
-        <div class="card grid-2">
-            <div>
-                <h4>🎯 Winrate por Lead</h4>
+            <div class="card">
+                <h3>Camino al Mundial: <b>{{ total_cp }} / 900 CP</b> ({{ cp_pct }}%)</h3>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" style="width: {{ cp_pct }}%;"></div>
+                </div>
+                <br>
+                <form action="/add_cp" method="POST" class="grid-2">
+                    <input type="text" name="name" placeholder="Torneo (ej. Regional Utrecht)">
+                    <input type="number" name="cp" placeholder="CPs Ganados">
+                    <button type="submit" class="btn" style="grid-column: span 2;">Registrar Puntos</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h4>🎯 Winrate por Pareja Inicial (Lead)</h4>
                 <table>
                     <tr><th>Pareja</th><th>P.</th><th>WR</th></tr>
                     {% for l in lead_stats %}
                         <tr><td>{{ l.lead }}</td><td>{{ l.total }}</td><td style="color: var(--win-color);">{{ l.wr }}%</td></tr>
                     {% else %}
-                        <tr><td colspan="3">Sin datos</td></tr>
+                        <tr><td colspan="3">Sin datos registrados</td></tr>
                     {% endfor %}
                 </table>
             </div>
-            <div>
-                <h4>🛡️ Winrate por Arquetipo</h4>
+
+            <div class="card">
+                <h4>🔴 Registro de Factores de Derrota (Misplays)</h4>
                 <table>
-                    <tr><th>Arquetipo</th><th>P.</th><th>WR</th></tr>
-                    {% for a in archetype_stats %}
-                        <tr><td>{{ a.arch }}</td><td>{{ a.total }}</td><td style="color: var(--win-color);">{{ a.wr }}%</td></tr>
+                    <tr><th>Causa</th><th>Frecuencia</th></tr>
+                    {% for m in misplay_stats %}
+                        <tr><td>{{ m.reason }}</td><td>{{ m.count }} veces</td></tr>
                     {% else %}
-                        <tr><td colspan="3">Sin datos</td></tr>
+                        <tr><td colspan="2">Sin derrotas categorizadas</td></tr>
                     {% endfor %}
                 </table>
             </div>
         </div>
 
-        <!-- Métricas de Megas Rivales -->
-        <div class="card">
-            <h4>🐉 Rendimiento frente a Megas Rivales</h4>
-            <table>
-                <tr><th>Mega Rival</th><th>Combates</th><th>Winrate</th></tr>
-                {% for m in mega_stats %}
-                    <tr><td>{{ m.mega }}</td><td>{{ m.total }}</td><td style="color: var(--win-color);">{{ m.wr }}%</td></tr>
-                {% else %}
-                    <tr><td colspan="3">Sin combates registrados contra Megas</td></tr>
-                {% endfor %}
-            </table>
-        </div>
-
-        <!-- Progreso de CP -->
-        <div class="card">
-            <h3>Camino al Mundial: <b>{{ total_cp }} / 900 CP</b> ({{ cp_pct }}%)</h3>
-            <div class="progress-bar-bg">
-                <div class="progress-bar-fill" style="width: {{ cp_pct }}%;"></div>
-            </div>
-            <br>
-            <form action="/add_cp" method="POST" class="grid-2">
-                <input type="text" name="name" placeholder="Torneo">
-                <input type="number" name="cp" placeholder="CPs Ganados">
-                <button type="submit" class="btn" style="grid-column: span 2;">Registrar CP</button>
-            </form>
-        </div>
-
-        <!-- Historial BO3 -->
-        <div class="card">
-            <h3> Historial de Series BO3</h3>
-            {% if series_list %}
-                {% for s in series_list %}
-                    <div class="series-card {{ s.result.split(' ')[0] }}">
-                        <div style="display: flex; justify-content: space-between;">
-                            <b>vs {{ s.opponent }}</b>
-                            <span style="font-weight: bold;">{{ s.result }}</span>
-                        </div>
-                        <small style="color: var(--text-muted);">Fecha: {{ s.date[:10] }}</small>
-                        
-                        {% if 'Derrota' in s.result %}
-                            <form action="/update_misplay" method="POST" style="margin-top: 8px; background: #1e293b; padding: 8px; border-radius: 4px;">
-                                <input type="hidden" name="series_id" value="{{ s.id }}">
-                                <label>Categorizar Factor de Derrota:</label>
-                                <div class="grid-2">
-                                    <select name="reason">
-                                        <option value="Error de Predicción (Misplay)" {% if s.misplay == 'Error de Predicción (Misplay)' %}selected{% endif %}>Error de Predicción (Misplay)</option>
-                                        <option value="Matchup Desfavorable (Team Preview)" {% if s.misplay == 'Matchup Desfavorable (Team Preview)' %}selected{% endif %}>Matchup Desfavorable (Team Preview)</option>
-                                        <option value="RNG / Golpe Crítico Rival" {% if s.misplay == 'RNG / Golpe Crítico Rival' %}selected{% endif %}>RNG / Golpe Crítico Rival</option>
-                                        <option value="Fallo de Precisión / Miss" {% if s.misplay == 'Fallo de Precisión / Miss' %}selected{% endif %}>Fallo de Precisión / Miss</option>
-                                    </select>
-                                    <button type="submit" class="btn" style="margin-top: 0;">Guardar Factor</button>
-                                </div>
-                            </form>
-                        {% endif %}
-
-                        {% for g in s.games %}
-                            <div class="game-badge">
-                                <b>Game {{ g[0] }} ({{ g[5] }}):</b> Yo: <i>{{ g[1] }}</i> | Rival: <i>{{ g[3] }}</i>
-                                <br><small style="color: var(--text-muted);">{{ g[11] | safe }}</small>
-                            </div>
-                        {% endfor %}
+        <!-- SECCIÓN 3: VER MIS EQUIPOS DE JUEGO -->
+        <div id="tab-myteams" class="tab-content">
+            <div class="card">
+                <h3>➕ Añadir Nuevo Equipo</h3>
+                <form action="/add_team" method="POST">
+                    <div class="form-group">
+                        <label>Nombre del Equipo</label>
+                        <input type="text" name="team_name" required placeholder="Ej. Sun Balance Gen 9">
                     </div>
+                    <div class="form-group">
+                        <label>Los 6 Pokémon del Equipo (Separados por comas)</label>
+                        <input type="text" name="pokemon_list" required placeholder="Flutter Mane, Incineroar, Rillaboom, Urshifu, Landorus, Mega Kangaskhan">
+                    </div>
+                    <div class="form-group">
+                        <label>Notas / PokéPaste URL</label>
+                        <input type="text" name="notes" placeholder="Paste: https://pokepast.es/...">
+                    </div>
+                    <button type="submit" class="btn btn-gold">Guardar Equipo en la Plantilla</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>🛡️ Mis Equipos Registrados</h3>
+                {% for t in user_teams %}
+                    <div style="background: #0f172a; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--accent-color);">
+                        <b>{{ t.name }}</b><br>
+                        <small style="color: var(--gold-accent);">{{ t.pokemon }}</small>
+                        {% if t.notes %}<br><small style="color: var(--text-muted);">{{ t.notes }}</small>{% endif %}
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted);">Sin equipos registrados.</p>
                 {% endfor %}
-            {% else %}
-                <p style="color: var(--text-muted);">Sin series registradas.</p>
-            {% endif %}
+            </div>
+        </div>
+
+        <!-- SECCIÓN 4: ANÁLISIS DE MIS EQUIPOS -->
+        <div id="tab-teamanalysis" class="tab-content">
+            <div class="card">
+                <h3>📈 Rendimiento por Equipo Utilizado</h3>
+                <table>
+                    <tr><th>Equipo</th><th>Games</th><th>Winrate</th></tr>
+                    {% for tp in team_performance %}
+                        <tr><td><b>{{ tp.name }}</b></td><td>{{ tp.total }}</td><td style="color: var(--win-color);">{{ tp.wr }}%</td></tr>
+                    {% else %}
+                        <tr><td colspan="3">Sin combates registrados con equipos.</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>⚡ Calculadora de Speed Tiers del Equipo</h3>
+                <div class="grid-2">
+                    <div>
+                        <label>Base Speed Stat:</label>
+                        <input type="number" id="baseSpeed" value="136">
+                    </div>
+                    <div>
+                        <label>Modificador:</label>
+                        <select id="speedMod" onchange="calculateSpeed()">
+                            <option value="1">Normal (x1.0)</option>
+                            <option value="2">Tailwind (x2.0)</option>
+                            <option value="1.5">Choice Scarf (x1.5)</option>
+                            <option value="0.67">-1 Velocidad (x0.67)</option>
+                            <option value="-1">Trick Room (Invertido)</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 10px; padding: 10px; background: #0f172a; border-radius: 6px;">
+                    <b>Velocidad Real: <span id="realSpeed" style="color: var(--gold-accent); font-size: 1.3em;">136</span></b>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 5: ANÁLISIS DE EQUIPOS RIVALES -->
+        <div id="tab-rivals" class="tab-content">
+            <div class="card">
+                <h3>🛡️ Rendimiento por Arquetipo Rival</h3>
+                <table>
+                    <tr><th>Arquetipo</th><th>Partidas</th><th>Winrate</th></tr>
+                    {% for a in archetype_stats %}
+                        <tr><td><b>{{ a.arch }}</b></td><td>{{ a.total }}</td><td style="color: var(--win-color);">{{ a.wr }}%</td></tr>
+                    {% else %}
+                        <tr><td colspan="3">Sin datos registrados</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>🐉 Rendimiento frente a Megas Rivales</h3>
+                <table>
+                    <tr><th>Mega Rival</th><th>Combates</th><th>Winrate</th></tr>
+                    {% for m in mega_stats %}
+                        <tr><td><b>{{ m.mega }}</b></td><td>{{ m.total }}</td><td style="color: var(--win-color);">{{ m.wr }}%</td></tr>
+                    {% else %}
+                        <tr><td colspan="3">Sin combates contra Megas registrados</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
         </div>
     </div>
 
     <script>
+        function openTab(tabId, btnElement) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if (btnElement) btnElement.classList.add('active');
+        }
+
         function calculateSpeed() {
             const base = parseFloat(document.getElementById('baseSpeed').value) || 0;
             const mod = parseFloat(document.getElementById('speedMod').value);
