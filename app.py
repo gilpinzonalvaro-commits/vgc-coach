@@ -11,7 +11,7 @@ def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Tabla de Equipos del Usuario con PokéPaste
+    # Tabla de Equipos con la nueva columna raw_paste
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS user_teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,20 +19,20 @@ def init_db():
         pokemon_list TEXT,
         pokepaste_url TEXT DEFAULT '',
         notes TEXT DEFAULT '',
+        raw_paste TEXT DEFAULT '',
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
     
-    # Migración por si la columna pokepaste_url no existía
-    try:
-        cursor.execute("ALTER TABLE user_teams ADD COLUMN pokepaste_url TEXT DEFAULT ''")
-    except:
-        pass
+    try: cursor.execute("ALTER TABLE user_teams ADD COLUMN pokepaste_url TEXT DEFAULT ''")
+    except: pass
+    try: cursor.execute("ALTER TABLE user_teams ADD COLUMN raw_paste TEXT DEFAULT ''")
+    except: pass
 
     cursor.execute("SELECT COUNT(*) FROM user_teams")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO user_teams (team_name, pokemon_list, pokepaste_url, notes) VALUES (?, ?, ?, ?)", 
-                       ("Equipo Principal Polilla", "Flutter Mane, Incineroar, Rillaboom, Urshifu, Landorus, Mega Kangaskhan", "https://pokepast.es/80b953d850362ced", "Equipo base para Ladder/Torneos"))
+        cursor.execute("INSERT INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) VALUES (?, ?, ?, ?, ?)", 
+                       ("Equipo Principal Polilla", "Flutter Mane, Incineroar, Rillaboom, Urshifu, Landorus, Mega Kangaskhan", "https://pokepast.es/80b953d850362ced", "Equipo base", ""))
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS series_matches (
@@ -81,31 +81,37 @@ def init_db():
 
 init_db()
 
+# NUEVO: Función para extraer los EVs y stats desde PokéPaste
+def fetch_pokepaste(url):
+    if not url or "pokepast.es" not in url: 
+        return ""
+    try:
+        raw_url = url.strip().rstrip("/")
+        if not raw_url.endswith("/raw"):
+            raw_url += "/raw"
+        resp = requests.get(raw_url, headers={"User-Agent": "VGC-Coach"}, timeout=5)
+        if resp.status_code == 200:
+            return resp.text
+    except Exception as e:
+        print(f"Error descargando paste: {e}")
+    return ""
+
 def detect_archetype(log_text, opp_team):
     log_lower = log_text.lower()
     team_str = " ".join(opp_team).lower()
-    
-    if "trick room" in log_lower or any(p in team_str for p in ["indeedee", "ursaluna", "calyrex-ice", "farigiraf", "torkoal", "dusclops"]):
-        return "Trick Room"
-    elif "tailwind" in log_lower or any(p in team_str for p in ["whimsicott", "tornadus", "talonflame", "roaring moon"]):
-        return "Tailwind / Speed Control"
-    elif "drizzle" in log_lower or "rain dance" in log_lower or any(p in team_str for p in ["kyogre", "pelipper", "urshifu-rapid-strike"]):
-        return "Rain Weather"
-    elif "drought" in log_lower or "sunny day" in log_lower or any(p in team_str for p in ["groudon", "koraidon", "torkoal", "flutter mane"]):
-        return "Sun Weather"
-    elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]):
-        return "Hyper Offense"
-    else:
-        return "Balance / Positional"
+    if "trick room" in log_lower or any(p in team_str for p in ["indeedee", "ursaluna", "calyrex-ice", "farigiraf", "torkoal", "dusclops"]): return "Trick Room"
+    elif "tailwind" in log_lower or any(p in team_str for p in ["whimsicott", "tornadus", "talonflame", "roaring moon"]): return "Tailwind / Speed Control"
+    elif "drizzle" in log_lower or "rain dance" in log_lower or any(p in team_str for p in ["kyogre", "pelipper", "urshifu-rapid-strike"]): return "Rain Weather"
+    elif "drought" in log_lower or "sunny day" in log_lower or any(p in team_str for p in ["groudon", "koraidon", "torkoal", "flutter mane"]): return "Sun Weather"
+    elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
+    else: return "Balance / Positional"
 
 def parse_showdown_replay(url, user_name=DEFAULT_USER):
     try:
         clean_url = url.split("?")[0].strip()
         json_url = clean_url + ".json" if not clean_url.endswith(".json") else clean_url
-        
         resp = requests.get(json_url, headers={"User-Agent": "VGC-Coach-App"}, timeout=5)
-        if resp.status_code != 200:
-            return None
+        if resp.status_code != 200: return None
         
         data = resp.json()
         log = data.get("log", "")
@@ -117,16 +123,14 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
             if len(parts) > 3 and parts[1] == "player":
                 p_id, p_name = parts[2], parts[3]
                 players[p_id] = p_name
-                if user_name.lower() in p_name.lower():
-                    user_p = p_id
+                if user_name.lower() in p_name.lower(): user_p = p_id
         
         opp_p = "p2" if user_p == "p1" else "p1"
         winner = data.get("winner", "")
         user_won = (winner.lower() == players.get(user_p, "").lower())
         
         my_team, opp_team = [], []
-        my_leads, opp_leads = [], []
-        my_megas, opp_megas = [], []
+        my_leads, opp_leads, my_megas, opp_megas = [], [], [], []
         turns = 0
         first_ko = None
         key_moves = []
@@ -134,8 +138,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         for line in log.split("\n"):
             parts = line.split("|")
             if len(parts) > 1:
-                if parts[1] == "turn":
-                    turns = int(parts[2])
+                if parts[1] == "turn": turns = int(parts[2])
                 elif parts[1] == "poke" and len(parts) > 3:
                     p_id, mon = parts[2], parts[3].split(",")[0].strip()
                     if p_id == user_p:
@@ -144,10 +147,8 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                         if mon not in opp_team: opp_team.append(mon)
                 elif parts[1] in ["switch", "drag"] and len(parts) > 3:
                     slot, mon = parts[2], parts[3].split(",")[0].strip()
-                    if slot.startswith(user_p) and mon not in my_leads and len(my_leads) < 2:
-                        my_leads.append(mon)
-                    elif slot.startswith(opp_p) and mon not in opp_leads and len(opp_leads) < 2:
-                        opp_leads.append(mon)
+                    if slot.startswith(user_p) and mon not in my_leads and len(my_leads) < 2: my_leads.append(mon)
+                    elif slot.startswith(opp_p) and mon not in opp_leads and len(opp_leads) < 2: opp_leads.append(mon)
                 elif parts[1] in ["detailschange", "-mega"] and "Mega" in line:
                     slot = parts[2] if len(parts) > 2 else ""
                     mega_mon = ""
@@ -186,12 +187,9 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
             "my_back": " / ".join(my_backs) if my_backs else "N/A",
             "opp_lead": " / ".join(opp_leads) if opp_leads else "N/A",
             "opp_back": " / ".join(opp_backs) if opp_backs else "N/A",
-            "my_mega": my_mega_str,
-            "opp_mega": opp_mega_str,
-            "archetype": archetype,
-            "turns": turns,
-            "first_ko": first_ko or "Sin KOs",
-            "replay_url": clean_url,
+            "my_mega": my_mega_str, "opp_mega": opp_mega_str,
+            "archetype": archetype, "turns": turns,
+            "first_ko": first_ko or "Sin KOs", "replay_url": clean_url,
             "tactical_summary": " • ".join(tactical_notes)
         }
     except Exception as e:
@@ -203,11 +201,10 @@ def index():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Mis Equipos con PokéPaste
-    cursor.execute("SELECT id, team_name, pokemon_list, pokepaste_url, notes FROM user_teams ORDER BY id DESC")
-    user_teams = [{"id": r[0], "name": r[1], "pokemon": r[2], "paste": r[3], "notes": r[4]} for r in cursor.fetchall()]
+    # Extraemos también el raw_paste
+    cursor.execute("SELECT id, team_name, pokemon_list, pokepaste_url, notes, raw_paste FROM user_teams ORDER BY id DESC")
+    user_teams = [{"id": r[0], "name": r[1], "pokemon": r[2], "paste": r[3], "notes": r[4], "raw_paste": r[5]} for r in cursor.fetchall()]
     
-    # Series BO3
     cursor.execute("SELECT id, opponent, result, misplay_reason, notes, date FROM series_matches ORDER BY id DESC")
     series_rows = cursor.fetchall()
     
@@ -235,7 +232,6 @@ def index():
         })
     
     series_winrate = round((total_series_wins / total_series_count * 100), 1) if total_series_count > 0 else 0
-    
     cursor.execute("SELECT my_lead, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY my_lead HAVING COUNT(*) >= 1")
     lead_stats = [{"lead": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
@@ -255,35 +251,10 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = []
-    if total_series_count >= 1:
-        if series_winrate >= 65: coach_advice.append("🏆 <b>Rendimiento de Nivel Mundial:</b> Winrate en BO3 óptimo.")
-        else: coach_advice.append("⚖️ <b>Enfoque Competitivo:</b> Revisa las métricas por equipo y las derrotas por misplay.")
-        
-        cursor.execute("SELECT opp_mega FROM games WHERE result = 'Derrota' AND opp_mega != 'Ninguna'")
-        loss_megas = [r[0] for r in cursor.fetchall()]
-        if loss_megas:
-            common_mega = max(set(loss_megas), key=loss_megas.count)
-            coach_advice.append(f"🔥 <b>Amenaza Rival Detectada:</b> Tu principal problema es contra <b>{common_mega}</b>.")
-    else:
-        coach_advice.append("Registra combates BO3 para activar el diagnóstico táctico.")
-
+    coach_advice = ["Prepara tus equipos. La extracción de stats (EVs) para el calculador de daño ya está activa."]
+    
     conn.close()
-    return render_template('dashboard.html',
-                           user_teams=user_teams,
-                           series_list=series_list,
-                           series_winrate=series_winrate,
-                           total_series_count=total_series_count,
-                           total_series_wins=total_series_wins,
-                           lead_stats=lead_stats,
-                           misplay_stats=misplay_stats,
-                           team_performance=team_performance,
-                           archetype_stats=archetype_stats,
-                           mega_stats=mega_stats,
-                           total_cp=total_cp,
-                           cp_pct=cp_pct,
-                           coach_advice="<br><br>".join(coach_advice),
-                           default_user=DEFAULT_USER)
+    return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
 
 @app.route('/add_team', methods=['POST'])
 def add_team():
@@ -291,16 +262,23 @@ def add_team():
     pokemon_list = request.form.get('pokemon_list')
     pokepaste_url = request.form.get('pokepaste_url', '')
     notes = request.form.get('notes', '')
+    
+    # Extraer EVs e IVs al momento de guardar
+    raw_paste = fetch_pokepaste(pokepaste_url)
+    
     if team_name and pokemon_list:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, pokepaste_url, notes) VALUES (?, ?, ?, ?)", (team_name, pokemon_list, pokepaste_url, notes))
+        # Modificamos la query para guardar el raw_paste
+        cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) VALUES (?, ?, ?, ?, ?)", 
+                       (team_name, pokemon_list, pokepaste_url, notes, raw_paste))
         conn.commit()
         conn.close()
     return redirect(url_for('index'))
 
 @app.route('/parse_replay', methods=['POST'])
 def parse_replay_route():
+    # Mantenemos esto igual, no cambia la lógica del replay
     url = request.form.get('replay_url')
     user_name = request.form.get('user_name') or DEFAULT_USER
     series_id = request.form.get('series_id')
@@ -310,26 +288,19 @@ def parse_replay_route():
     if parsed:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        
         if not series_id or series_id == "new":
             cursor.execute("INSERT INTO series_matches (opponent, result) VALUES (?, ?)", (parsed['opponent'], 'En curso'))
             series_id = cursor.lastrowid
-        
         cursor.execute("SELECT COUNT(*) FROM games WHERE series_id = ?", (series_id,))
         game_num = cursor.fetchone()[0] + 1
-        
-        cursor.execute('''
-            INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, first_ko, replay_url, tactical_summary)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (series_id, game_num, team_name, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['first_ko'], parsed['replay_url'], parsed['tactical_summary']))
-        
+        cursor.execute('''INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, first_ko, replay_url, tactical_summary)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+            (series_id, game_num, team_name, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['first_ko'], parsed['replay_url'], parsed['tactical_summary']))
         cursor.execute("SELECT result FROM games WHERE series_id = ?", (series_id,))
         results = [r[0] for r in cursor.fetchall()]
         wins, losses = results.count('Victoria'), results.count('Derrota')
-        
         if wins >= 2: cursor.execute("UPDATE series_matches SET result = 'Victoria (BO3)' WHERE id = ?", (series_id,))
         elif losses >= 2: cursor.execute("UPDATE series_matches SET result = 'Derrota (BO3)' WHERE id = ?", (series_id,))
-            
         conn.commit()
         conn.close()
     return redirect(url_for('index'))
@@ -341,7 +312,7 @@ def update_misplay():
     notes = request.form.get('notes', '')
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("UPDATE series_matches SET misplay_reason = ?, notes = ? WHERE id = ?", (series_id, reason, notes))
+    cursor.execute("UPDATE series_matches SET misplay_reason = ?, notes = ? WHERE id = ?", (reason, notes, series_id))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
