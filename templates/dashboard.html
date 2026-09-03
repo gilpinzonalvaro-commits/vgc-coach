@@ -30,7 +30,6 @@
         h1 { text-align: center; color: var(--gold-accent); font-size: 1.5em; margin-bottom: 2px; }
         .subtitle { text-align: center; color: var(--text-muted); font-size: 0.85em; margin-bottom: 16px; }
         
-        /* Navegación por Pestañas */
         .tabs { display: flex; gap: 4px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
         .tab-btn {
             flex: 1;
@@ -70,6 +69,18 @@
         }
         .btn { background: var(--accent-color); font-weight: bold; border: none; cursor: pointer; margin-top: 6px; }
         .btn-gold { background: var(--gold-accent); color: #0f172a; }
+        .btn-link {
+            display: inline-block;
+            padding: 6px 10px;
+            background: #334155;
+            color: #f8fafc;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-top: 6px;
+        }
+        .btn-link:hover { background: var(--accent-color); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .stat-box { text-align: center; padding: 12px; background: #0f172a; border-radius: 8px; }
         .stat-value { font-size: 1.4em; font-weight: bold; }
@@ -92,7 +103,6 @@
         <h1>👑 VGC Coach: Camino al Mundial</h1>
         <div class="subtitle">Entrenador Táctico | Usuario: <b>{{ default_user }}</b></div>
         
-        <!-- Pestañas de Navegación de las 5 Secciones -->
         <div class="tabs">
             <button class="tab-btn active" onclick="openTab('tab-matches', this)">🕹️ Partidas</button>
             <button class="tab-btn" onclick="openTab('tab-stats', this)">📊 Estadísticas</button>
@@ -232,10 +242,10 @@
             </div>
         </div>
 
-        <!-- SECCIÓN 3: VER MIS EQUIPOS DE JUEGO -->
+        <!-- SECCIÓN 3: VER Y GESTIONAR MIS EQUIPOS CON POKÉPASTE -->
         <div id="tab-myteams" class="tab-content">
             <div class="card">
-                <h3>➕ Añadir Nuevo Equipo</h3>
+                <h3>➕ Registrar Nuevo Equipo</h3>
                 <form action="/add_team" method="POST">
                     <div class="form-group">
                         <label>Nombre del Equipo</label>
@@ -246,8 +256,12 @@
                         <input type="text" name="pokemon_list" required placeholder="Flutter Mane, Incineroar, Rillaboom, Urshifu, Landorus, Mega Kangaskhan">
                     </div>
                     <div class="form-group">
-                        <label>Notas / PokéPaste URL</label>
-                        <input type="text" name="notes" placeholder="Paste: https://pokepast.es/...">
+                        <label>Enlace de PokéPaste (https://pokepast.es/...)</label>
+                        <input type="url" name="pokepaste_url" placeholder="https://pokepast.es/80b953d850362ced">
+                    </div>
+                    <div class="form-group">
+                        <label>Notas Adicionales</label>
+                        <input type="text" name="notes" placeholder="Spread de EV o notas de estrategia...">
                     </div>
                     <button type="submit" class="btn btn-gold">Guardar Equipo en la Plantilla</button>
                 </form>
@@ -256,10 +270,17 @@
             <div class="card">
                 <h3>🛡️ Mis Equipos Registrados</h3>
                 {% for t in user_teams %}
-                    <div style="background: #0f172a; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--accent-color);">
-                        <b>{{ t.name }}</b><br>
-                        <small style="color: var(--gold-accent);">{{ t.pokemon }}</small>
-                        {% if t.notes %}<br><small style="color: var(--text-muted);">{{ t.notes }}</small>{% endif %}
+                    <div style="background: #0f172a; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid var(--accent-color);">
+                        <b style="font-size: 1.05em; color: var(--gold-accent);">{{ t.name }}</b><br>
+                        <small style="color: #cbd5e1;">{{ t.pokemon }}</small><br>
+                        
+                        {% if t.paste %}
+                            <a href="{{ t.paste }}" target="_blank" class="btn-link">🔗 Abrir PokéPaste</a>
+                        {% endif %}
+                        
+                        {% if t.notes %}
+                            <br><small style="color: var(--text-muted); font-style: italic;">Notas: {{ t.notes }}</small>
+                        {% endif %}
                     </div>
                 {% else %}
                     <p style="color: var(--text-muted);">Sin equipos registrados.</p>
