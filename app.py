@@ -11,24 +11,29 @@ def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Tabla de Equipos del Usuario (polilla02)
+    # Tabla de Equipos del Usuario con PokéPaste
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS user_teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         team_name TEXT UNIQUE,
         pokemon_list TEXT,
-        notes TEXT,
+        pokepaste_url TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
     
-    # Insertar un equipo por defecto si está vacía
+    # Migración por si la columna pokepaste_url no existía
+    try:
+        cursor.execute("ALTER TABLE user_teams ADD COLUMN pokepaste_url TEXT DEFAULT ''")
+    except:
+        pass
+
     cursor.execute("SELECT COUNT(*) FROM user_teams")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO user_teams (team_name, pokemon_list, notes) VALUES (?, ?, ?)", 
-                       ("Equipo Principal Polilla", "Flutter Mane, Incineroar, Rillaboom, Urshifu, Landorus, Mega Kangaskhan", "Equipo base para Ladder/Torneos"))
+        cursor.execute("INSERT INTO user_teams (team_name, pokemon_list, pokepaste_url, notes) VALUES (?, ?, ?, ?)", 
+                       ("Equipo Principal Polilla", "Flutter Mane, Incineroar, Rillaboom, Urshifu, Landorus, Mega Kangaskhan", "https://pokepast.es/80b953d850362ced", "Equipo base para Ladder/Torneos"))
 
-    # Tabla de Series BO3
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS series_matches (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +45,6 @@ def init_db():
     )
     ''')
 
-    # Tabla de Games individuales
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,13 +67,6 @@ def init_db():
     )
     ''')
 
-    # Migración por si la columna team_name no existía
-    try:
-        cursor.execute("ALTER TABLE games ADD COLUMN team_name TEXT DEFAULT 'Equipo Principal Polilla'")
-    except:
-        pass
-
-    # Tabla de Torneos y CP
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS tournaments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -206,11 +203,11 @@ def index():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # 1. Mis Equipos
-    cursor.execute("SELECT id, team_name, pokemon_list, notes FROM user_teams ORDER BY id DESC")
-    user_teams = [{"id": r[0], "name": r[1], "pokemon": r[2], "notes": r[3]} for r in cursor.fetchall()]
+    # Mis Equipos con PokéPaste
+    cursor.execute("SELECT id, team_name, pokemon_list, pokepaste_url, notes FROM user_teams ORDER BY id DESC")
+    user_teams = [{"id": r[0], "name": r[1], "pokemon": r[2], "paste": r[3], "notes": r[4]} for r in cursor.fetchall()]
     
-    # 2. Series BO3 y Games
+    # Series BO3
     cursor.execute("SELECT id, opponent, result, misplay_reason, notes, date FROM series_matches ORDER BY id DESC")
     series_rows = cursor.fetchall()
     
@@ -237,7 +234,6 @@ def index():
             "misplay": misplay, "notes": notes, "date": date, "games": games
         })
     
-    # 3. Métricas Estadísticas Globales
     series_winrate = round((total_series_wins / total_series_count * 100), 1) if total_series_count > 0 else 0
     
     cursor.execute("SELECT my_lead, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY my_lead HAVING COUNT(*) >= 1")
@@ -246,23 +242,19 @@ def index():
     cursor.execute("SELECT misplay_reason, COUNT(*) FROM series_matches WHERE result LIKE 'Derrota%' GROUP BY misplay_reason")
     misplay_stats = [{"reason": r[0], "count": r[1]} for r in cursor.fetchall()]
     
-    # 4. Análisis de Mis Equipos (Rendimiento por plantilla usada)
     cursor.execute("SELECT team_name, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY team_name")
     team_performance = [{"name": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
-    # 5. Análisis de Equipos Rivales (Arquetipos y Megas enemigas)
     cursor.execute("SELECT archetype, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY archetype")
     archetype_stats = [{"arch": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
     cursor.execute("SELECT opp_mega, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games WHERE opp_mega != 'Ninguna' GROUP BY opp_mega")
     mega_stats = [{"mega": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
     
-    # Tracker de CP
     cursor.execute("SELECT SUM(cp) FROM tournaments")
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    # Coach Advice
     coach_advice = []
     if total_series_count >= 1:
         if series_winrate >= 65: coach_advice.append("🏆 <b>Rendimiento de Nivel Mundial:</b> Winrate en BO3 óptimo.")
@@ -297,11 +289,12 @@ def index():
 def add_team():
     team_name = request.form.get('team_name')
     pokemon_list = request.form.get('pokemon_list')
+    pokepaste_url = request.form.get('pokepaste_url', '')
     notes = request.form.get('notes', '')
     if team_name and pokemon_list:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, notes) VALUES (?, ?, ?)", (team_name, pokemon_list, notes))
+        cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, pokepaste_url, notes) VALUES (?, ?, ?, ?)", (team_name, pokemon_list, pokepaste_url, notes))
         conn.commit()
         conn.close()
     return redirect(url_for('index'))
@@ -348,7 +341,7 @@ def update_misplay():
     notes = request.form.get('notes', '')
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("UPDATE series_matches SET misplay_reason = ?, notes = ? WHERE id = ?", (reason, notes, series_id))
+    cursor.execute("UPDATE series_matches SET misplay_reason = ?, notes = ? WHERE id = ?", (series_id, reason, notes))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
