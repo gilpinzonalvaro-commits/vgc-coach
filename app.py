@@ -307,7 +307,7 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["El motor de daño y stats ya está calibrado con tus PokéPastes (incluyendo naturalezas en ESP/ENG)."]
+    coach_advice = ["Cajas del PC organizadas. Puedes gestionar y borrar tus equipos y partidas libremente."]
     
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
@@ -376,6 +376,18 @@ def delete_series():
     cursor.execute("DELETE FROM series_matches WHERE id = ?", (series_id,))
     conn.commit()
     conn.close()
+    return redirect(url_for('index'))
+
+# NUEVA FUNCIÓN: BORRAR EQUIPO
+@app.route('/delete_team', methods=['POST'])
+def delete_team():
+    team_id = request.form.get('team_id')
+    if team_id:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM user_teams WHERE id = ?", (team_id,))
+        conn.commit()
+        conn.close()
     return redirect(url_for('index'))
 
 @app.route('/add_cp', methods=['POST'])
