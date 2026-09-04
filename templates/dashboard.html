@@ -71,6 +71,13 @@
                         <label>Enlace del Replay de Showdown</label>
                         <input type="url" name="replay_url" required placeholder="https://replay.pokemonshowdown.com/gen9vgc...">
                     </div>
+                    
+                    <!-- CASILLA NUEVA DE IDENTIDAD -->
+                    <div class="form-group">
+                        <label>Tu Nick en este combate (Opcional si usaste cuenta secundaria)</label>
+                        <input type="text" name="user_name" placeholder="Ej: polilla_vgc">
+                    </div>
+
                     <div class="grid-2">
                         <div class="form-group">
                             <label>Asignar a Serie BO3</label>
@@ -129,19 +136,16 @@
                                 </form>
                             {% endif %}
 
-                            <!-- REPORTE DE ANÁLISIS DE CADA GAME -->
                             {% for g in s.games %}
                                 <div class="game-badge">
                                     <b style="font-size: 1.1em; color: var(--accent-blue);">Game {{ g[0] }} ({{ g[6] }}):</b><br>
                                     <span style="color: var(--text-color); font-weight: 700;">Tus Pokémon:</span> {{ g[2] }}<br>
                                     <span style="color: var(--text-color); font-weight: 700;">Rival:</span> {{ g[4] }}<br>
                                     
-                                    <!-- RESUMEN TÁCTICO -->
                                     <div style="margin-top: 6px; padding: 6px; background: var(--card-bg); border-radius: 4px; font-size: 0.9em; color: var(--text-muted);">
                                         {{ g[12] | safe }}
                                     </div>
 
-                                    <!-- NUEVO: EL REPORTE INTELIGENTE DEL COACH -->
                                     {% if g[13] %}
                                         <div class="report-box {% if g[6] == 'Victoria' %}win{% endif %}">
                                             {{ g[13] | safe }}
