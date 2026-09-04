@@ -4,60 +4,186 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VGC World Championship Coach - polilla02</title>
+    <!-- Importamos una fuente redondeada estilo Pokémon Moderno -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        :root { --bg-color: #0f172a; --card-bg: #1e293b; --accent-color: #3b82f6; --purple-accent: #8b5cf6; --text-color: #f8fafc; --text-muted: #94a3b8; --win-color: #22c55e; --loss-color: #ef4444; --border-color: #334155; --gold-accent: #eab308; }
-        body { font-family: apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; display: flex; justify-content: center; }
-        .container { max-width: 650px; width: 100%; }
-        h1 { text-align: center; color: var(--gold-accent); font-size: 1.5em; margin-bottom: 2px; }
-        .subtitle { text-align: center; color: var(--text-muted); font-size: 0.85em; margin-bottom: 16px; }
-        .tabs { display: flex; gap: 4px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
-        .tab-btn { flex: 1; padding: 10px 6px; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 8px; font-weight: bold; font-size: 0.78em; cursor: pointer; white-space: nowrap; text-align: center; }
-        .tab-btn.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+        :root { 
+            --bg-color: #e5eef5; /* Azul muy clarito para el fondo */
+            --card-bg: #ffffff;
+            --box-bg: #f8fafc;
+            --inner-bg: #f1f5f9;
+            --accent-blue: #3466AF; /* Azul Logo Pokémon */
+            --accent-yellow: #FFCB05; /* Amarillo Pikachu */
+            --accent-red: #EE1515; /* Rojo Pokédex */
+            --text-color: #334155; /* Texto oscuro principal */
+            --text-muted: #64748b;
+            --win-color: #22c55e;
+            --loss-color: #ef4444;
+            --border-color: #cbd5e1;
+            --thick-border: #1e293b; /* Borde estilo consola */
+        }
+        
+        body { 
+            font-family: 'Nunito', sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            padding: 16px; 
+            display: flex; 
+            justify-content: center;
+            /* Patrón de puntos estilo PC Box de Pokémon */
+            background-image: radial-gradient(#cbd5e1 2px, transparent 2px);
+            background-size: 24px 24px;
+        }
+        
+        .container { max-width: 700px; width: 100%; }
+        
+        /* Cabecera estilo Liga Pokémon */
+        h1 { 
+            text-align: center; 
+            color: var(--accent-blue); 
+            font-size: 1.8em; 
+            margin-bottom: 2px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 2px 2px 0px var(--accent-yellow);
+        }
+        .subtitle { text-align: center; color: var(--text-muted); font-size: 0.95em; margin-bottom: 20px; font-weight: 700; }
+        
+        /* Pestañas de Navegación */
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 8px; }
+        .tab-btn { 
+            flex: 1; 
+            padding: 12px 8px; 
+            background: var(--card-bg); 
+            border: 3px solid var(--thick-border); 
+            color: var(--text-color); 
+            border-radius: 12px; 
+            font-weight: 900; 
+            font-size: 0.85em; 
+            cursor: pointer; 
+            white-space: nowrap; 
+            text-align: center;
+            box-shadow: 0 4px 0 var(--thick-border);
+            transition: all 0.1s;
+        }
+        .tab-btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--thick-border); }
+        .tab-btn.active { background: var(--accent-red); color: white; border-color: var(--thick-border); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border-color); }
-        .form-group { margin-bottom: 10px; }
-        label { display: block; margin-bottom: 4px; font-size: 0.8em; color: var(--text-muted); }
-        input, select, button, textarea { width: 100%; padding: 10px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 6px; color: white; box-sizing: border-box; font-size: 0.88em; }
-        .btn { background: var(--accent-color); font-weight: bold; border: none; cursor: pointer; margin-top: 6px; }
-        .btn-gold { background: var(--gold-accent); color: #0f172a; }
-        .btn-link { display: inline-block; padding: 6px 10px; background: #334155; color: #f8fafc; border-radius: 4px; text-decoration: none; font-size: 0.8em; font-weight: bold; margin-top: 6px; }
-        .btn-link:hover { background: var(--accent-color); }
-        .btn-calc { background: var(--purple-accent); color: white; margin-left: 5px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .stat-box { text-align: center; padding: 12px; background: #0f172a; border-radius: 8px; }
-        .stat-value { font-size: 1.4em; font-weight: bold; }
-        .progress-bar-bg { background: #0f172a; height: 16px; border-radius: 8px; overflow: hidden; margin-top: 8px; }
-        .progress-bar-fill { background: linear-gradient(90deg, #3b82f6, #eab308); height: 100%; width: 0%; transition: width 0.3s; }
-        .series-card { background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-        .series-card.Victoria { border-left: 4px solid var(--win-color); }
-        .series-card.Derrota { border-left: 4px solid var(--loss-color); }
-        .game-badge { background: #1e293b; padding: 8px; border-radius: 4px; margin-top: 6px; font-size: 0.82em; border-left: 3px solid var(--accent-color); }
-        .coach-advice { background: #1e1b4b; border: 1px solid var(--purple-accent); padding: 12px; border-radius: 8px; font-size: 0.9em; }
-        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 0.82em; }
-        th, td { text-align: left; padding: 7px; border-bottom: 1px solid var(--border-color); }
-        th { color: var(--text-muted); }
-        .poke-stat-card { background: #0f172a; border: 1px dashed var(--border-color); padding: 8px; border-radius: 6px; margin-top: 6px; font-size: 0.85em; }
-        .ev-tag { background: #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; margin-right: 4px; display: inline-block; margin-top: 4px;}
+        
+        /* Tarjetas Principales */
+        .card { 
+            background: var(--card-bg); 
+            border-radius: 16px; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+            border: 3px solid var(--thick-border); 
+            box-shadow: 4px 4px 0px rgba(30, 41, 59, 0.1);
+        }
+        
+        .card h3 { color: var(--accent-red); margin-top: 0; font-weight: 900; font-size: 1.2em; border-bottom: 2px dashed var(--border-color); padding-bottom: 8px;}
+        .card h4 { color: var(--accent-blue); font-weight: 900; }
+        
+        /* Formularios y Cajas de Texto */
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-size: 0.9em; color: var(--text-color); font-weight: 700;}
+        input, select, textarea { 
+            width: 100%; 
+            padding: 12px; 
+            background: var(--box-bg); 
+            border: 2px solid var(--border-color); 
+            border-radius: 8px; 
+            color: var(--text-color); 
+            box-sizing: border-box; 
+            font-size: 0.95em; 
+            font-family: 'Nunito', sans-serif;
+            font-weight: 700;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--accent-blue); }
+        
+        /* Botones estilo Consola */
+        .btn { 
+            background: var(--accent-blue); 
+            color: white; 
+            font-weight: 900; 
+            border: 3px solid var(--thick-border); 
+            border-radius: 10px; 
+            cursor: pointer; 
+            margin-top: 8px; 
+            padding: 12px;
+            box-shadow: 0 4px 0 var(--thick-border);
+            text-transform: uppercase;
+            transition: all 0.1s;
+        }
+        .btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--thick-border); }
+        .btn-gold { background: var(--accent-yellow); color: var(--thick-border); }
+        
+        .btn-link { 
+            display: inline-block; 
+            padding: 8px 12px; 
+            background: var(--inner-bg); 
+            color: var(--text-color); 
+            border: 2px solid var(--thick-border);
+            border-radius: 8px; 
+            text-decoration: none; 
+            font-size: 0.85em; 
+            font-weight: 900; 
+            margin-top: 6px; 
+            box-shadow: 0 3px 0 var(--thick-border);
+        }
+        .btn-link:active { transform: translateY(3px); box-shadow: 0 0 0 var(--thick-border); }
+        .btn-calc { background: #9333ea; color: white; margin-left: 5px; } /* Morado tipo Gengar */
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        
+        /* Cajas de Estadísticas */
+        .stat-box { text-align: center; padding: 16px; background: var(--box-bg); border-radius: 12px; border: 2px solid var(--border-color); }
+        .stat-value { font-size: 1.6em; font-weight: 900; margin-top: 4px;}
+        
+        /* Barra de Progreso CP */
+        .progress-bar-bg { background: var(--border-color); height: 20px; border-radius: 10px; overflow: hidden; margin-top: 8px; border: 2px solid var(--thick-border); }
+        .progress-bar-fill { background: linear-gradient(90deg, var(--accent-blue), var(--accent-yellow)); height: 100%; width: 0%; transition: width 0.3s; }
+        
+        /* Tarjetas de Series y Partidas */
+        .series-card { background: var(--box-bg); border: 2px solid var(--thick-border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+        .series-card.Victoria { border-left: 8px solid var(--win-color); }
+        .series-card.Derrota { border-left: 8px solid var(--loss-color); }
+        
+        .game-badge { background: var(--inner-bg); padding: 10px; border-radius: 8px; margin-top: 8px; font-size: 0.85em; border: 1px solid var(--border-color); border-left: 4px solid var(--accent-blue); }
+        
+        /* Consejo del Coach tipo RotomDex */
+        .coach-advice { background: #fffbeb; border: 3px solid var(--accent-yellow); padding: 16px; border-radius: 12px; font-size: 0.95em; color: #92400e; font-weight: 700;}
+        
+        /* Tablas */
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 8px; font-size: 0.9em; border: 2px solid var(--border-color); border-radius: 8px; overflow: hidden;}
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border-color); }
+        th { background: var(--box-bg); color: var(--text-color); font-weight: 900; }
+        tr:last-child td { border-bottom: none; }
+        
+        /* Visor de Stats (PC Box Style) */
+        .poke-stat-card { background: var(--card-bg); border: 2px solid var(--accent-blue); padding: 10px; border-radius: 10px; margin-top: 6px; font-size: 0.85em; box-shadow: 2px 2px 0px rgba(52, 102, 175, 0.2);}
+        .ev-tag { background: var(--accent-blue); color: white; padding: 3px 8px; border-radius: 6px; font-size: 0.85em; font-weight: 900; margin-right: 4px; display: inline-block; margin-top: 6px;}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>👑 VGC Coach: Camino al Mundial</h1>
+        <h1>🏆 VGC Coach</h1>
         <div class="subtitle">Entrenador Táctico | Usuario: <b>{{ default_user }}</b></div>
         
         <div class="tabs">
-            <button class="tab-btn active" onclick="openTab('tab-matches', this)">🕹️ Partidas</button>
-            <button class="tab-btn" onclick="openTab('tab-stats', this)">📊 Estadísticas</button>
-            <button class="tab-btn" onclick="openTab('tab-myteams', this)">🛡️ Mis Equipos</button>
-            <button class="tab-btn" onclick="openTab('tab-teamanalysis', this)">📈 Mi Rendimiento</button>
+            <button class="tab-btn active" onclick="openTab('tab-matches', this)">🎮 Partidas</button>
+            <button class="tab-btn" onclick="openTab('tab-stats', this)">📊 Stats</button>
+            <button class="tab-btn" onclick="openTab('tab-myteams', this)">🎒 Equipos</button>
+            <button class="tab-btn" onclick="openTab('tab-teamanalysis', this)">📈 Rendimiento</button>
             <button class="tab-btn" onclick="openTab('tab-rivals', this)">🐉 Rivales</button>
         </div>
 
         <!-- SECCIÓN 1: ANÁLISIS POR PARTIDA -->
         <div id="tab-matches" class="tab-content active">
             <div class="card">
-                <h3>⚡ Registrar Game de Showdown</h3>
+                <h3>⚡ Registrar Combate de Showdown</h3>
                 <form action="/parse_replay" method="POST">
                     <div class="form-group">
                         <label>Enlace del Replay de Showdown</label>
@@ -84,34 +210,34 @@
                             </select>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-gold">Procesar Game e Integrar en BO3</button>
+                    <button type="submit" class="btn btn-gold" style="width: 100%;">Procesar Game e Integrar en BO3</button>
                 </form>
             </div>
 
             <div class="card">
-                <h3>🧠 Diagnóstico Táctico del Coach</h3>
+                <h3>💡 Rotom-Dex Táctico</h3>
                 <div class="coach-advice">{{ coach_advice | safe }}</div>
             </div>
 
             <div class="card">
-                <h3>📜 Historial de Series BO3 y Games</h3>
+                <h3>📜 Historial de Combates</h3>
                 {% if series_list %}
                     {% for s in series_list %}
                         <div class="series-card {{ s.result.split(' ')[0] }}">
-                            <div style="display: flex; justify-content: space-between;">
-                                <b>vs {{ s.opponent }}</b>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <b style="font-size: 1.1em;">VS {{ s.opponent }}</b>
                                 <div>
-                                    <span style="font-weight: bold; margin-right: 10px;">{{ s.result }}</span>
+                                    <span style="font-weight: 900; margin-right: 10px; color: {% if 'Victoria' in s.result %}var(--win-color){% else %}var(--loss-color){% endif %};">{{ s.result }}</span>
                                     <form action="/delete_series" method="POST" style="display:inline;">
                                         <input type="hidden" name="series_id" value="{{ s.id }}">
-                                        <button type="submit" style="background: none; border: none; cursor: pointer; font-size: 1.1em;" title="Borrar esta Serie">🗑️</button>
+                                        <button type="submit" style="background: none; border: none; cursor: pointer; font-size: 1.2em; filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.1));" title="Borrar esta Serie">🗑️</button>
                                     </form>
                                 </div>
                             </div>
-                            <small style="color: var(--text-muted);">Fecha: {{ s.date[:10] }}</small>
+                            <small style="color: var(--text-muted); font-weight: 700;">Fecha: {{ s.date[:10] }}</small>
                             
                             {% if 'Derrota' in s.result %}
-                                <form action="/update_misplay" method="POST" style="margin-top: 6px; background: #1e293b; padding: 6px; border-radius: 4px;">
+                                <form action="/update_misplay" method="POST" style="margin-top: 10px; background: var(--inner-bg); padding: 10px; border-radius: 8px; border: 1px dashed var(--border-color);">
                                     <input type="hidden" name="series_id" value="{{ s.id }}">
                                     <label>Categorizar Factor de Derrota:</label>
                                     <div class="grid-2">
@@ -129,13 +255,13 @@
                             {% for g in s.games %}
                                 <div class="game-badge">
                                     <b>Game {{ g[0] }} ({{ g[6] }}):</b> [{{ g[1] }}] Yo: <i>{{ g[2] }}</i> | Rival: <i>{{ g[4] }}</i>
-                                    <br><small style="color: var(--text-muted);">{{ g[12] | safe }}</small>
+                                    <br><small style="color: var(--text-muted); font-weight: 700;">{{ g[12] | safe }}</small>
                                 </div>
                             {% endfor %}
                         </div>
                     {% endfor %}
                 {% else %}
-                    <p style="color: var(--text-muted);">Sin series registradas.</p>
+                    <p style="color: var(--text-muted); font-weight: 700;">Sin series registradas.</p>
                 {% endif %}
             </div>
         </div>
@@ -144,11 +270,11 @@
         <div id="tab-stats" class="tab-content">
             <div class="card grid-2">
                 <div class="stat-box">
-                    <div>Winrate BO3</div>
+                    <div style="font-weight: 700; color: var(--text-muted);">Winrate BO3</div>
                     <div class="stat-value" style="color: var(--win-color);">{{ series_winrate }}%</div>
                 </div>
                 <div class="stat-box">
-                    <div>Series (V/D)</div>
+                    <div style="font-weight: 700; color: var(--text-muted);">Series (V/D)</div>
                     <div class="stat-value">{{ total_series_wins }} / {{ total_series_count - total_series_wins }}</div>
                 </div>
             </div>
@@ -162,7 +288,7 @@
                 <form action="/add_cp" method="POST" class="grid-2">
                     <input type="text" name="name" placeholder="Torneo (ej. Regional Utrecht)">
                     <input type="number" name="cp" placeholder="CPs Ganados">
-                    <button type="submit" class="btn" style="grid-column: span 2;">Registrar Puntos</button>
+                    <button type="submit" class="btn" style="grid-column: span 2; width: 100%;">Registrar Puntos</button>
                 </form>
             </div>
 
@@ -171,7 +297,7 @@
                 <table>
                     <tr><th>Pareja</th><th>P.</th><th>WR</th></tr>
                     {% for l in lead_stats %}
-                        <tr><td>{{ l.lead }}</td><td>{{ l.total }}</td><td style="color: var(--win-color);">{{ l.wr }}%</td></tr>
+                        <tr><td>{{ l.lead }}</td><td>{{ l.total }}</td><td style="color: var(--win-color); font-weight: 900;">{{ l.wr }}%</td></tr>
                     {% else %}
                         <tr><td colspan="3">Sin datos registrados</td></tr>
                     {% endfor %}
@@ -179,11 +305,11 @@
             </div>
 
             <div class="card">
-                <h4>🔴 Registro de Factores de Derrota (Misplays)</h4>
+                <h4>🔴 Registro de Factores de Derrota</h4>
                 <table>
-                    <tr><th>Causa</th><th>Frecuencia</th></tr>
+                    <tr><th>Causa (Misplay)</th><th>Frecuencia</th></tr>
                     {% for m in misplay_stats %}
-                        <tr><td>{{ m.reason }}</td><td>{{ m.count }} veces</td></tr>
+                        <tr><td>{{ m.reason }}</td><td><b style="color: var(--loss-color);">{{ m.count }}</b> veces</td></tr>
                     {% else %}
                         <tr><td colspan="2">Sin derrotas categorizadas</td></tr>
                     {% endfor %}
@@ -212,34 +338,35 @@
                         <label>Notas Adicionales</label>
                         <input type="text" name="notes" placeholder="Notas de estrategia...">
                     </div>
-                    <button type="submit" class="btn btn-gold">Guardar e Importar EVs</button>
+                    <button type="submit" class="btn btn-gold" style="width: 100%;">Guardar e Importar EVs</button>
                 </form>
             </div>
 
             <div class="card">
-                <h3>🛡️ Mis Equipos (Laboratorio de Stats)</h3>
+                <h3>🎒 Mis Equipos (PC Box)</h3>
                 {% for t in user_teams %}
-                    <div style="background: #1e293b; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid var(--accent-color);">
+                    <div style="background: var(--box-bg); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 3px solid var(--thick-border); border-left: 8px solid var(--accent-red);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <b style="font-size: 1.1em; color: var(--gold-accent);">{{ t.name }}</b>
+                            <b style="font-size: 1.2em; color: var(--accent-blue); text-transform: uppercase;">{{ t.name }}</b>
                             <a href="https://nerd-of-now.github.io/NCP-VGC-Damage-Calculator/" target="_blank" class="btn-link btn-calc">⚔️ Calculadora NCP</a>
                         </div>
                         
-                        <div style="margin-top: 8px; margin-bottom: 8px;">
+                        <div style="margin-top: 12px; margin-bottom: 12px;">
                             {% if t.paste %}
                                 <a href="{{ t.paste }}" target="_blank" class="btn-link">🔗 Abrir PokéPaste</a>
                             {% endif %}
-                            <button class="btn-link" onclick="copiarPaste(`{{ t.raw_paste }}`)">📋 Copiar Equipo para Importar</button>
+                            <button class="btn-link" onclick="copiarPaste(`{{ t.raw_paste }}`)">📋 Copiar Equipo (Importar)</button>
                         </div>
                         
                         {% if t.parsed_mons %}
-                            <div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
-                                <h4 style="margin: 0 0 6px 0; color: var(--text-muted);">Auditoría de Stats (Extraído Automáticamente)</h4>
+                            <div style="margin-top: 16px; border-top: 2px dashed var(--border-color); padding-top: 12px;">
+                                <h4 style="margin: 0 0 10px 0; color: var(--text-color);">📊 Auditoría de Stats</h4>
                                 <div class="grid-2">
                                 {% for m in t.parsed_mons %}
                                     <div class="poke-stat-card">
-                                        <b style="color: white;">{{ m.name }}</b> @ <span style="color: var(--accent-color);">{{ m.item }}</span><br>
-                                        <small style="color: var(--text-muted);">Nat: {{ m.nature }} | Hab: {{ m.ability }}</small><br>
+                                        <b style="color: var(--thick-border); font-size: 1.1em;">{{ m.name }}</b> <br>
+                                        <span style="color: var(--accent-red); font-weight: 800;">@ {{ m.item }}</span><br>
+                                        <small style="color: var(--text-muted); font-weight: 700;">Nat: {{ m.nature }} | Hab: {{ m.ability }}</small><br>
                                         {% for ev in m.evs.split(' / ') %}
                                             <span class="ev-tag">{{ ev }}</span>
                                         {% endfor %}
@@ -250,7 +377,7 @@
                         {% endif %}
                     </div>
                 {% else %}
-                    <p style="color: var(--text-muted);">Sin equipos registrados.</p>
+                    <p style="color: var(--text-muted); font-weight: 700;">Sin equipos registrados.</p>
                 {% endfor %}
             </div>
         </div>
@@ -258,11 +385,11 @@
         <!-- SECCIÓN 4: ANÁLISIS DE MIS EQUIPOS -->
         <div id="tab-teamanalysis" class="tab-content">
             <div class="card">
-                <h3>📈 Rendimiento por Equipo Utilizado</h3>
+                <h3>📈 Rendimiento por Equipo</h3>
                 <table>
                     <tr><th>Equipo</th><th>Games</th><th>Winrate</th></tr>
                     {% for tp in team_performance %}
-                        <tr><td><b>{{ tp.name }}</b></td><td>{{ tp.total }}</td><td style="color: var(--win-color);">{{ tp.wr }}%</td></tr>
+                        <tr><td><b style="color: var(--accent-blue);">{{ tp.name }}</b></td><td>{{ tp.total }}</td><td style="color: var(--win-color); font-weight: 900;">{{ tp.wr }}%</td></tr>
                     {% else %}
                         <tr><td colspan="3">Sin combates registrados con equipos.</td></tr>
                     {% endfor %}
@@ -270,25 +397,26 @@
             </div>
 
             <div class="card">
-                <h3>⚡ Calculadora de Speed Tiers del Equipo</h3>
+                <h3>⚡ Calculadora de Velocidad</h3>
                 <div class="grid-2">
                     <div>
-                        <label>Base Speed Stat:</label>
+                        <label>Velocidad Base:</label>
                         <input type="number" id="baseSpeed" value="136">
                     </div>
                     <div>
-                        <label>Modificador:</label>
+                        <label>Modificador (Estado):</label>
                         <select id="speedMod" onchange="calculateSpeed()">
                             <option value="1">Normal (x1.0)</option>
-                            <option value="2">Tailwind (x2.0)</option>
-                            <option value="1.5">Choice Scarf (x1.5)</option>
+                            <option value="2">Tailwind / Viento Afín (x2.0)</option>
+                            <option value="1.5">Pañuelo Elección (x1.5)</option>
                             <option value="0.67">-1 Velocidad (x0.67)</option>
-                            <option value="-1">Trick Room (Invertido)</option>
+                            <option value="-1">Espacio Raro (Invertido)</option>
                         </select>
                     </div>
                 </div>
-                <div style="text-align: center; margin-top: 10px; padding: 10px; background: #0f172a; border-radius: 6px;">
-                    <b>Velocidad Real: <span id="realSpeed" style="color: var(--gold-accent); font-size: 1.3em;">136</span></b>
+                <div style="text-align: center; margin-top: 16px; padding: 16px; background: var(--inner-bg); border-radius: 12px; border: 2px dashed var(--border-color);">
+                    <b style="font-size: 1.1em; color: var(--text-muted);">Velocidad Real en Combate:</b><br>
+                    <span id="realSpeed" style="color: var(--accent-blue); font-size: 2em; font-weight: 900;">136</span>
                 </div>
             </div>
         </div>
@@ -298,9 +426,9 @@
             <div class="card">
                 <h3>🛡️ Rendimiento por Arquetipo Rival</h3>
                 <table>
-                    <tr><th>Arquetipo</th><th>Partidas</th><th>Winrate</th></tr>
+                    <tr><th>Arquetipo Enemigo</th><th>Partidas</th><th>Winrate</th></tr>
                     {% for a in archetype_stats %}
-                        <tr><td><b>{{ a.arch }}</b></td><td>{{ a.total }}</td><td style="color: var(--win-color);">{{ a.wr }}%</td></tr>
+                        <tr><td><b style="color: var(--text-color);">{{ a.arch }}</b></td><td>{{ a.total }}</td><td style="color: var(--win-color); font-weight: 900;">{{ a.wr }}%</td></tr>
                     {% else %}
                         <tr><td colspan="3">Sin datos registrados</td></tr>
                     {% endfor %}
@@ -310,9 +438,9 @@
             <div class="card">
                 <h3>🐉 Rendimiento frente a Megas Rivales</h3>
                 <table>
-                    <tr><th>Mega Rival</th><th>Combates</th><th>Winrate</th></tr>
+                    <tr><th>Mega Evolución Rival</th><th>Combates</th><th>Winrate</th></tr>
                     {% for m in mega_stats %}
-                        <tr><td><b>{{ m.mega }}</b></td><td>{{ m.total }}</td><td style="color: var(--win-color);">{{ m.wr }}%</td></tr>
+                        <tr><td><b style="color: var(--accent-red);">{{ m.mega }}</b></td><td>{{ m.total }}</td><td style="color: var(--win-color); font-weight: 900;">{{ m.wr }}%</td></tr>
                     {% else %}
                         <tr><td colspan="3">Sin combates contra Megas registrados</td></tr>
                     {% endfor %}
@@ -339,7 +467,7 @@
         function copiarPaste(texto) {
             if (!texto) { alert("No hay datos de paste guardados."); return; }
             navigator.clipboard.writeText(texto).then(() => {
-                alert("¡Equipo copiado! Ya puedes pegarlo (Ctrl+V) en Import/Export de la Calculadora NCP.");
+                alert("¡Equipo copiado al portapapeles! 🎒\n\nYa puedes pegarlo (Ctrl+V) en Import/Export de la Calculadora de Daño.");
             });
         }
     </script>
