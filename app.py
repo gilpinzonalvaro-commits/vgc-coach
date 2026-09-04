@@ -121,14 +121,14 @@ def parse_showdown_team(raw_paste):
 def detect_archetype(log_text, opp_team):
     log_lower = log_text.lower()
     team_str = " ".join(opp_team).lower()
-    if "trick room" in log_lower or any(p in team_str for p in ["indeedee", "ursaluna", "calyrex-ice", "farigiraf", "torkoal", "dusclops"]): return "Trick Room"
+    if "trick room" in log_lower or any(p in team_str for p in ["indeedee", "ursaluna", "calyrex-ice", "farigiraf", "torkoal", "dusclops", "sinistcha"]): return "Trick Room"
     elif "tailwind" in log_lower or any(p in team_str for p in ["whimsicott", "tornadus", "talonflame", "roaring moon"]): return "Tailwind / Speed Control"
     elif "drizzle" in log_lower or "rain dance" in log_lower or any(p in team_str for p in ["kyogre", "pelipper", "urshifu-rapid-strike"]): return "Rain Weather"
     elif "drought" in log_lower or "sunny day" in log_lower or any(p in team_str for p in ["groudon", "koraidon", "torkoal", "flutter mane"]): return "Sun Weather"
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
-# --- MOTOR DE ANÁLISIS DE REPLAY QUIRÚRGICO TURNO A TURNO ---
+# --- MOTOR DE INTELIGENCIA VGC ---
 def parse_showdown_replay(url, user_name=DEFAULT_USER):
     try:
         clean_url = url.split("?")[0].strip()
@@ -139,7 +139,6 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         data = resp.json()
         log = data.get("log", "")
         
-        # Extracción de Jugadores
         players = {}
         for line in log.split("\n"):
             parts = line.split("|")
@@ -182,11 +181,16 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         turns = 0
         first_ko = None
         
-        # AUDITORÍA DETALLADA
         current_turn = 0
         current_attacker_is_user = False
         last_attacker_mon = ""
         last_move_used = ""
+        
+        # Variables Heurísticas Avanzadas
+        user_faints_log = []
+        opp_faints_log = []
+        supereffective_taken_early = []
+        opp_speed_control = False
         turn_logs = []
 
         for line in log.split("\n"):
@@ -217,38 +221,47 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                         if mega_mon not in my_megas: my_megas.append(mega_mon)
                     else:
                         if mega_mon not in opp_megas: opp_megas.append(mega_mon)
-
-            # RASTREO TÁCTICO
             elif cmd == "move" and len(parts) > 3:
                 slot = parts[2]
                 last_move_used = parts[3]
                 last_attacker_mon = slot.split(":")[1].strip() if ":" in slot else slot
                 current_attacker_is_user = slot.startswith(user_p)
                 
-                if last_move_used in ["Tailwind", "Trick Room", "Rain Dance", "Sunny Day"]:
-                    who = "Tú" if current_attacker_is_user else f"El rival ({opponent_name})"
-                    turn_logs.append(f"<b>[T{current_turn}]</b> {who} activó <b>{last_move_used}</b>.")
+                if not current_attacker_is_user and last_move_used in ["Tailwind", "Trick Room"]:
+                    opp_speed_control = True
+                    
+                if last_move_used in ["Tailwind", "Trick Room", "Rain Dance", "Sunny Day", "Snowscape", "Sandstorm"]:
+                    who = "Tú" if current_attacker_is_user else "El rival"
+                    turn_logs.append(f"🌪️ <b>[T{current_turn}]</b> {who} metió <b>{last_move_used}</b>.")
+                    
+            elif cmd == "-supereffective" and len(parts) > 2:
+                target = parts[2]
+                if target.startswith(user_p) and current_turn <= 3:
+                    mon = target.split(":")[1].strip() if ":" in target else target
+                    if mon not in supereffective_taken_early:
+                        supereffective_taken_early.append(mon)
 
             elif cmd in ["-immune", "-fail"]:
                 if current_attacker_is_user:
-                    target = parts[2].split(":")[1].strip() if len(parts) > 2 and ":" in parts[2] else "su objetivo"
-                    turn_logs.append(f"⚠️ <b>[T{current_turn}] Error:</b> Atacaste con <b>{last_attacker_mon}</b> ({last_move_used}) a <b>{target}</b> pero FUE INMUNE / FALLÓ.")
+                    target = parts[2].split(":")[1].strip() if len(parts) > 2 and ":" in parts[2] else "objetivo"
+                    turn_logs.append(f"⚠️ <b>[T{current_turn}]</b> Tu {last_attacker_mon} ({last_move_used}) FALLÓ / INMUNE ante {target}.")
 
             elif cmd == "-singleturn" and "Protect" in line:
                 if current_attacker_is_user:
-                    target = parts[2].split(":")[1].strip() if len(parts) > 2 and ":" in parts[2] else "el objetivo"
-                    turn_logs.append(f"🛡️ <b>[T{current_turn}] Predicción Fallida:</b> Atacaste con <b>{last_attacker_mon}</b> ({last_move_used}) pero <b>{target}</b> usó Protección.")
-
-            elif cmd == "miss":
-                if current_attacker_is_user:
-                    turn_logs.append(f"🎯 <b>[T{current_turn}] Miss de Precisión:</b> Tu <b>{last_attacker_mon}</b> falló {last_move_used}.")
+                    target = parts[2].split(":")[1].strip() if len(parts) > 2 and ":" in parts[2] else "objetivo"
+                    turn_logs.append(f"🛡️ <b>[T{current_turn}]</b> Atacaste con {last_attacker_mon} pero {target} se Protegió.")
 
             elif cmd == "faint" and len(parts) > 2:
                 fainted_mon = parts[2].split(":")[1].strip() if ":" in parts[2] else parts[2]
-                side = "Tu" if parts[2].startswith(user_p) else "El rival perdió a"
-                if not first_ko:
-                    first_ko = f"{fainted_mon} ({'Tuyo' if parts[2].startswith(user_p) else 'Rival'}, T{current_turn})"
-                turn_logs.append(f"💀 <b>[T{current_turn}] KO:</b> {side} <b>{fainted_mon}</b> cayó debilitado.")
+                is_user = parts[2].startswith(user_p)
+                if is_user:
+                    user_faints_log.append((current_turn, fainted_mon))
+                    if not first_ko: first_ko = f"{fainted_mon} (Tuyo, T{current_turn})"
+                    turn_logs.append(f"💀 <b>[T{current_turn}] KO:</b> Tu <b>{fainted_mon}</b> cayó.")
+                else:
+                    opp_faints_log.append((current_turn, fainted_mon))
+                    if not first_ko: first_ko = f"{fainted_mon} (Rival, T{current_turn})"
+                    turn_logs.append(f"💥 <b>[T{current_turn}] KO:</b> Rival <b>{fainted_mon}</b> cayó.")
 
         my_backs = [m for m in my_team if m not in my_leads][:2]
         opp_backs = [m for m in opp_team if m not in opp_leads][:2]
@@ -261,13 +274,44 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         if opp_mega_str != "Ninguna": tactical_notes.append(f"<b>Mega Rival:</b> {opp_mega_str}")
         if my_mega_str != "Ninguna": tactical_notes.append(f"<b>Tu Mega:</b> {my_mega_str}")
 
-        # INFORME DETALLADO
-        report_header = "<span style='color: var(--loss-color); font-weight: 900;'>❌ ANÁLISIS DETALLADO DE LA DERROTA:</span>" if not user_won else "<span style='color: var(--win-color); font-weight: 900;'>✅ ANÁLISIS DE LA VICTORIA:</span>"
-        
-        if turn_logs:
-            coach_report_str = f"{report_header}<br><br>" + "<br>".join(turn_logs)
+        # --- CONSTRUCCIÓN DEL REPORTE DEL COACH EXPERTO ---
+        report = []
+        if not user_won:
+            report.append("<span style='color: var(--loss-color); font-weight: 900; font-size: 1.1em; text-transform: uppercase;'>❌ COACH: ANÁLISIS TÁCTICO PROFUNDO</span>")
+            
+            # 1. Lead Matchup Analysis
+            if user_faints_log and user_faints_log[0][0] <= 2:
+                early_mon = user_faints_log[0][1]
+                opp_lead_str = " y ".join(opp_leads) if opp_leads else "los leads rivales"
+                if early_mon in supereffective_taken_early:
+                    report.append(f"🛑 <b>Desastre en el Lead (Matchup):</b> Tu <b>{early_mon}</b> recibió daño Súper Efectivo y cayó en T{user_faints_log[0][0]}. Saliste en posición de <i>Jaque Mate Ofensivo</i> contra <b>{opp_lead_str}</b>. Revisa tus coberturas defensivas en Team Preview.")
+                else:
+                    report.append(f"🛑 <b>Pérdida de Iniciativa en el Lead:</b> Tu <b>{early_mon}</b> fue anulado muy pronto (T{user_faints_log[0][0]}). Cediste la ventaja posicional inicial a <b>{opp_lead_str}</b>.")
+                    
+            # 2. Speed Control Checked
+            if opp_speed_control:
+                report.append(f"⏱️ <b>No se negó el Speed Control:</b> El rival logró establecer su Viento Afín / Espacio Raro con éxito. A partir de ahí perdiste el tempo. Necesitabas Mofa, un Anti-clima o daño focalizado para denegarlo en el Turno 1.")
+                
+            # 3. Snowball Effect
+            if len(user_faints_log) >= 2 and len(opp_faints_log) == 0:
+                report.append("📉 <b>Efecto Bola de Nieve (Tempo Loss):</b> Ibas 0-2 abajo antes de lograr eliminar a un rival. Sin amenaza de KOs tempranos, el rival asfixió tu posición táctica jugando sobre seguro.")
+                
+            # 4. Aisalmiento
+            if len(user_faints_log) >= 3 and len(opp_faints_log) <= 2:
+                report.append("♟️ <b>Falta de Apoyo Final:</b> Tu último Pokémon quedó vendido en inferioridad numérica contra múltiples amenazas, un escenario casi imposible de ganar.")
+
+            if len(report) == 1:
+                report.append("🔍 <b>Desgaste / Outplay en Late-Game:</b> Fue un combate equilibrado. Perdiste por desgaste a largo plazo o malas predicciones (Protecciones/Cambios) en los últimos turnos.")
         else:
-            coach_report_str = f"{report_header}<br>Combate fluido sin errores de precisión ni chocar contra Protecciones. Se resolvió por posicionamiento y daño directo."
+            report.append("<span style='color: var(--win-color); font-weight: 900; font-size: 1.1em; text-transform: uppercase;'>✅ COACH: VICTORIA DOMINANTE</span>")
+            report.append("🎯 <b>Ejecución Sólida:</b> Entendiste perfectamente la Win Condition, mantuviste el control del ritmo (Momentum) y superaste las amenazas del rival.")
+
+        coach_report_str = "<br><br>".join(report)
+        
+        # Ocultar el log crudo en un desplegable elegante
+        if turn_logs:
+            turn_by_turn_html = f"<details style='margin-top:16px; cursor:pointer; background: var(--inner-bg); padding: 8px; border-radius: 8px; border: 1px solid var(--border-color);'><summary style='font-weight:900; color:var(--accent-blue);'>📑 Ver Log Turno a Turno</summary><div style='font-size:0.85em; margin-top:8px; color:var(--text-muted); line-height: 1.6;'>" + "<br>".join(turn_logs) + "</div></details>"
+            coach_report_str += turn_by_turn_html
 
         return {
             "opponent": opponent_name,
@@ -326,7 +370,7 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["Auditoría por turno activada. Los replays ahora desglosan exactamente qué ocurrió en cada momento crítico."]
+    coach_advice = ["El Algoritmo Heurístico VGC está activado. Detecta Desastres de Lead, Bolas de Nieve y Control de Velocidad."]
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
 
