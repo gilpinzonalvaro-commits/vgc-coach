@@ -307,19 +307,29 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["Cajas del PC organizadas. Puedes gestionar y borrar tus equipos y partidas libremente."]
+    coach_advice = ["El registro de equipos es ahora automático. Introduce el PokéPaste y la app extraerá tus Pokémon y estadísticas."]
     
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
 
+# --- MAGIA AUTOMÁTICA AQUÍ ---
 @app.route('/add_team', methods=['POST'])
 def add_team():
     team_name = request.form.get('team_name')
-    pokemon_list = request.form.get('pokemon_list')
     pokepaste_url = request.form.get('pokepaste_url', '')
     notes = request.form.get('notes', '')
+    
+    # Extraemos el texto puro del paste
     raw_paste = fetch_pokepaste(pokepaste_url)
-    if team_name and pokemon_list:
+    
+    # Procesamos los datos y generamos la lista de Pokémon automáticamente
+    parsed_mons = parse_showdown_team(raw_paste)
+    pokemon_list = ", ".join([mon['name'] for mon in parsed_mons])
+    
+    if not pokemon_list:
+        pokemon_list = "Error: PokéPaste vacío o enlace inválido."
+
+    if team_name and raw_paste:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) VALUES (?, ?, ?, ?, ?)", 
@@ -378,7 +388,6 @@ def delete_series():
     conn.close()
     return redirect(url_for('index'))
 
-# NUEVA FUNCIÓN: BORRAR EQUIPO
 @app.route('/delete_team', methods=['POST'])
 def delete_team():
     team_id = request.form.get('team_id')
