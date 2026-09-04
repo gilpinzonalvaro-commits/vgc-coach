@@ -56,9 +56,12 @@ def init_db():
         first_ko TEXT,
         replay_url TEXT,
         tactical_summary TEXT,
+        coach_report TEXT DEFAULT '',
         FOREIGN KEY (series_id) REFERENCES series_matches (id)
     )
     ''')
+    try: cursor.execute("ALTER TABLE games ADD COLUMN coach_report TEXT DEFAULT ''")
+    except: pass
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS tournaments (
@@ -87,14 +90,11 @@ def parse_showdown_team(raw_paste):
     if not raw_paste: return []
     text = raw_paste.replace('\r\n', '\n').replace('\r', '\n').strip()
     if not text: return []
-    
     mons = []
     blocks = re.split(r'\n\s*\n', text)
-    
     for block in blocks:
         lines = [l.strip() for l in block.split('\n') if l.strip()]
         if not lines: continue
-        
         first_line = lines[0]
         if '@' in first_line:
             name_part, item = first_line.split('@', 1)
@@ -102,35 +102,20 @@ def parse_showdown_team(raw_paste):
         else:
             name_part = first_line.strip()
             item = "Sin Objeto"
-            
         if '(' in name_part and ')' in name_part:
             inside = name_part[name_part.find('(')+1 : name_part.find(')')].strip()
-            if inside in ["M", "F"]:
-                name = name_part.split('(')[0].strip()
-            else:
-                name = inside
-        else:
-            name = name_part.strip()
-            
+            if inside in ["M", "F"]: name = name_part.split('(')[0].strip()
+            else: name = inside
+        else: name = name_part.strip()
         evs, nature, ability = "Sin EVs", "Neutra", "Desconocida"
-        
         for line in lines[1:]:
             line_lower = line.lower()
-            if line_lower.startswith("ability:") or line_lower.startswith("habilidad:"):
-                ability = line.split(":", 1)[1].strip()
-            elif line_lower.startswith("evs:"):
-                evs = line.split(":", 1)[1].strip()
+            if line_lower.startswith("ability:") or line_lower.startswith("habilidad:"): ability = line.split(":", 1)[1].strip()
+            elif line_lower.startswith("evs:"): evs = line.split(":", 1)[1].strip()
             elif "nature" in line_lower or "naturaleza" in line_lower:
                 clean_nat = line_lower.replace("nature", "").replace("naturaleza", "").strip()
                 nature = clean_nat.capitalize()
-                
-        mons.append({
-            "name": name,
-            "item": item,
-            "ability": ability,
-            "evs": evs,
-            "nature": nature
-        })
+        mons.append({"name": name, "item": item, "ability": ability, "evs": evs, "nature": nature})
     return mons
 
 def detect_archetype(log_text, opp_team):
@@ -168,23 +153,28 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                 p_id, p_name = parts[2], parts[3]
                 players[p_id] = p_name
                 norm_pname = "".join(e for e in p_name.lower() if e.isalnum())
-                if normalized_user in norm_pname:
-                    user_p = p_id
-            if len(parts) > 2 and parts[1] == "win":
-                winner_name = parts[2]
+                if normalized_user in norm_pname: user_p = p_id
+            if len(parts) > 2 and parts[1] == "win": winner_name = parts[2]
                 
         opp_p = "p2" if user_p == "p1" else "p1"
         user_won = False
         if winner_name:
             norm_winner = "".join(e for e in winner_name.lower() if e.isalnum())
             norm_player = "".join(e for e in players.get(user_p, "").lower() if e.isalnum())
-            if norm_player and norm_player == norm_winner:
-                user_won = True
+            if norm_player and norm_player == norm_winner: user_won = True
         
         my_team, opp_team, my_leads, opp_leads, my_megas, opp_megas = [], [], [], [], [], []
         turns = 0
         first_ko = None
         key_moves = []
+        
+        # Variables para el Coach Report
+        user_misses = 0
+        user_immunities = 0
+        user_protect_fails = 0
+        opp_speed_control = False
+        opp_got_first_ko = False
+        current_attacker = None
         
         for line in log.split("\n"):
             parts = line.split("|")
@@ -210,15 +200,33 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                             if mega_mon not in my_megas: my_megas.append(mega_mon)
                         else:
                             if mega_mon not in opp_megas: opp_megas.append(mega_mon)
+                
+                # TRACKING DE EVENTOS PARA EL COACH
+                elif parts[1] == "move" and len(parts) > 3:
+                    slot = parts[2]
+                    move = parts[3]
+                    if slot.startswith(user_p): current_attacker = "user"
+                    else: 
+                        current_attacker = "opp"
+                        if move in ["Tailwind", "Trick Room"]: opp_speed_control = True
+                    
+                    if move in ["Tailwind", "Trick Room", "Rain Dance", "Sunny Day", "Snowscape", "Sandstorm"]:
+                        if f"{move} (T{turns})" not in key_moves: key_moves.append(f"{move} (T{turns})")
+                        
+                elif parts[1] == "miss":
+                    if current_attacker == "user": user_misses += 1
+                elif parts[1] == "-immune":
+                    if current_attacker == "user": user_immunities += 1
+                elif parts[1] == "-singleturn" and "Protect" in line:
+                    # Detecta si el rival se protegió y nosotros le atacamos en ese turno
+                    if current_attacker == "user": user_protect_fails += 1
+
                 elif parts[1] == "faint" and not first_ko:
                     fainted_mon = parts[2].split(":")[1].strip() if ":" in parts[2] else parts[2]
                     side = "Tuyo" if parts[2].startswith(user_p) else "Rival"
+                    if side == "Tuyo": opp_got_first_ko = True
                     first_ko = f"{fainted_mon} ({side}, T{turns})"
-                elif parts[1] == "move" and len(parts) > 3:
-                    move = parts[3]
-                    if move in ["Tailwind", "Trick Room", "Rain Dance", "Sunny Day", "Snowscape", "Sandstorm"]:
-                        if f"{move} (T{turns})" not in key_moves: key_moves.append(f"{move} (T{turns})")
-        
+                    
         my_backs = [m for m in my_team if m not in my_leads][:2]
         opp_backs = [m for m in opp_team if m not in opp_leads][:2]
         archetype = detect_archetype(log, opp_team)
@@ -230,6 +238,25 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         if first_ko: tactical_notes.append(f"<b>Primer KO:</b> {first_ko}")
         if opp_mega_str != "Ninguna": tactical_notes.append(f"<b>Mega Rival:</b> {opp_mega_str}")
         if my_mega_str != "Ninguna": tactical_notes.append(f"<b>Tu Mega:</b> {my_mega_str}")
+
+        # GENERACIÓN DEL REPORTE DEL COACH
+        report = []
+        if not user_won:
+            report.append("<span style='color: var(--loss-color); font-weight: 900;'>❌ ANÁLISIS CRÍTICO DE LA DERROTA:</span>")
+            if opp_got_first_ko:
+                report.append("📉 <b>Pérdida de Momentum:</b> El rival logró el primer KO. Tu Lead fue superado o leíste mal el turno 1. Revisa tus opciones defensivas en el early-game.")
+            if opp_speed_control:
+                report.append("⏱️ <b>Speed Control Dominado:</b> El rival impuso su control de velocidad (Viento Afín/Espacio Raro). Te faltaron herramientas como Mofa, Viento Hielo o posicionamiento defensivo para negarlo.")
+            if user_misses > 0:
+                report.append(f"🎯 <b>RNG / Ejecución:</b> Fallaste {user_misses} ataque(s). Revisa si ese movimiento de baja precisión era estrictamente necesario como Win Condition.")
+            if user_immunities > 0 or user_protect_fails > 0:
+                report.append(f"🛡️ <b>Errores de Predicción:</b> Golpeaste a Pokémon inmunes o en Protección {user_immunities + user_protect_fails} veces. El rival leyó tus intenciones. Cuidado con los Teratipos defensivos.")
+            if not opp_got_first_ko and not opp_speed_control and user_misses == 0 and user_immunities == 0:
+                report.append("♟️ <b>Matchup / Outplay:</b> Perdiste sin errores evidentes de dados o momentum inicial. Esto indica desventaja pura de equipo (Matchup) o un fuerte outplay en el late-game. Usa la calculadora NCP para estudiar este cruce.")
+        else:
+            report.append("<span style='color: var(--win-color); font-weight: 900;'>✅ ANÁLISIS DE VICTORIA:</span> Ejecución táctica sólida. Mantuviste el control de tu Win-Condition.")
+
+        coach_report_str = "<br>".join(report)
         
         return {
             "opponent": players.get(opp_p, "Rival Showdown"),
@@ -241,7 +268,8 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
             "my_mega": my_mega_str, "opp_mega": opp_mega_str,
             "archetype": archetype, "turns": turns,
             "first_ko": first_ko or "Sin KOs", "replay_url": clean_url,
-            "tactical_summary": " • ".join(tactical_notes)
+            "tactical_summary": " • ".join(tactical_notes),
+            "coach_report": coach_report_str
         }
     except Exception as e:
         print(f"Error parseando replay: {e}")
@@ -270,7 +298,7 @@ def index():
     
     for s in series_rows:
         s_id, opp, s_res, misplay, notes, date = s
-        cursor.execute("SELECT game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary FROM games WHERE series_id = ? ORDER BY game_num ASC", (s_id,))
+        cursor.execute("SELECT game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary, coach_report FROM games WHERE series_id = ? ORDER BY game_num ASC", (s_id,))
         games = cursor.fetchall()
         
         g_wins = sum(1 for g in games if g[6] == 'Victoria')
@@ -307,28 +335,20 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["El registro de equipos es ahora automático. Introduce el PokéPaste y la app extraerá tus Pokémon y estadísticas."]
+    coach_advice = ["El Algoritmo Analítico Avanzado está activado. Cada partida que registres recibirá un informe táctico profundo."]
     
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
 
-# --- MAGIA AUTOMÁTICA AQUÍ ---
 @app.route('/add_team', methods=['POST'])
 def add_team():
     team_name = request.form.get('team_name')
     pokepaste_url = request.form.get('pokepaste_url', '')
     notes = request.form.get('notes', '')
-    
-    # Extraemos el texto puro del paste
     raw_paste = fetch_pokepaste(pokepaste_url)
-    
-    # Procesamos los datos y generamos la lista de Pokémon automáticamente
     parsed_mons = parse_showdown_team(raw_paste)
     pokemon_list = ", ".join([mon['name'] for mon in parsed_mons])
-    
-    if not pokemon_list:
-        pokemon_list = "Error: PokéPaste vacío o enlace inválido."
-
+    if not pokemon_list: pokemon_list = "Error: PokéPaste vacío o enlace inválido."
     if team_name and raw_paste:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
@@ -353,9 +373,9 @@ def parse_replay_route():
             series_id = cursor.lastrowid
         cursor.execute("SELECT COUNT(*) FROM games WHERE series_id = ?", (series_id,))
         game_num = cursor.fetchone()[0] + 1
-        cursor.execute('''INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, first_ko, replay_url, tactical_summary)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-            (series_id, game_num, team_name, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['first_ko'], parsed['replay_url'], parsed['tactical_summary']))
+        cursor.execute('''INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, first_ko, replay_url, tactical_summary, coach_report)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+            (series_id, game_num, team_name, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['first_ko'], parsed['replay_url'], parsed['tactical_summary'], parsed['coach_report']))
         cursor.execute("SELECT result FROM games WHERE series_id = ?", (series_id,))
         results = [r[0] for r in cursor.fetchall()]
         wins, losses = results.count('Victoria'), results.count('Derrota')
