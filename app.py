@@ -77,7 +77,8 @@ def init_db():
 init_db()
 
 def fetch_pokepaste(url):
-    if not url or "pokepast.es" not in url: return ""
+    if not url: return ""
+    if "pokepast.es" not in url: return ""
     try:
         raw_url = url.strip().rstrip("/")
         if not raw_url.endswith("/raw"): raw_url += "/raw"
@@ -128,7 +129,6 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
-# --- LÓGICA DE JUGADORES Y VICTORIAS BLINDADA ---
 def parse_showdown_replay(url, user_name=DEFAULT_USER):
     try:
         clean_url = url.split("?")[0].strip()
@@ -139,47 +139,31 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         data = resp.json()
         log = data.get("log", "")
         
-        # 1. Identificar jugadores ANTES de dividir el BO3
+        if "|init|battle" in log:
+            games_logs = log.split("|init|battle")
+            if len(games_logs) > 1: log = "|init|battle" + games_logs[-1]
+                
         players = {}
+        user_p = "p1"
+        normalized_user = "".join(e for e in user_name.lower() if e.isalnum())
+        winner_name = data.get("winner", "")
+        
         for line in log.split("\n"):
             parts = line.split("|")
             if len(parts) > 3 and parts[1] == "player":
-                if parts[2] not in players:
-                    players[parts[2]] = parts[3]
-                    
-        # 2. Asignar Identidad al Usuario de forma flexible
-        user_p = "p1"
-        if not user_name: user_name = DEFAULT_USER
-        norm_target = "".join(e for e in user_name.lower() if e.isalnum())
-        
-        for pid, pname in players.items():
-            norm_pname = "".join(e for e in pname.lower() if e.isalnum())
-            if norm_target in norm_pname or norm_pname in norm_target:
-                user_p = pid
-                break
+                p_id, p_name = parts[2], parts[3]
+                players[p_id] = p_name
+                norm_pname = "".join(e for e in p_name.lower() if e.isalnum())
+                if normalized_user in norm_pname: user_p = p_id
+            if len(parts) > 2 and parts[1] == "win": winner_name = parts[2]
                 
         opp_p = "p2" if user_p == "p1" else "p1"
-
-        # 3. Extraer Ganador Real
-        winner_name = data.get("winner", "")
-        if not winner_name:
-            for line in log.split("\n"):
-                parts = line.split("|")
-                if len(parts) > 2 and parts[1] == "win":
-                    winner_name = parts[2]
-
         user_won = False
         if winner_name:
             norm_winner = "".join(e for e in winner_name.lower() if e.isalnum())
             norm_player = "".join(e for e in players.get(user_p, "").lower() if e.isalnum())
-            if norm_player and (norm_player in norm_winner or norm_winner in norm_player):
-                user_won = True
+            if norm_player and (norm_player in norm_winner or norm_winner in norm_player): user_won = True
         
-        # Separar el último combate si es un log combinado de BO3
-        if "|init|battle" in log:
-            games_logs = log.split("|init|battle")
-            if len(games_logs) > 1: log = "|init|battle" + games_logs[-1]
-
         my_team, opp_team, my_leads, opp_leads, my_megas, opp_megas = [], [], [], [], [], []
         turns = 0
         first_ko = None
@@ -312,32 +296,39 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["El Motor ahora detecta perfectamente tus victorias independientemente de si el formato BO3 está mezclado."]
+    coach_advice = ["El guardado de equipos ahora es inquebrantable. Mostrará el error si el enlace está mal, pero se creará siempre en el registro."]
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
 
+# --- AQUI ESTA LA CORRECCIÓN DE GUARDADO ---
 @app.route('/add_team', methods=['POST'])
 def add_team():
     team_name = request.form.get('team_name')
     pokepaste_url = request.form.get('pokepaste_url', '')
     notes = request.form.get('notes', '')
+    
     raw_paste = fetch_pokepaste(pokepaste_url)
     parsed_mons = parse_showdown_team(raw_paste)
     pokemon_list = ", ".join([mon['name'] for mon in parsed_mons])
-    if not pokemon_list: pokemon_list = "Error: PokéPaste vacío o enlace inválido."
-    if team_name and raw_paste:
+    
+    if not pokemon_list: 
+        pokemon_list = "⚠️ Error leyendo Paste (enlace inválido o sin contenido)."
+        
+    # Ahora guarda SIEMPRE el equipo aunque el link falle, para no silenciar el error
+    if team_name:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) VALUES (?, ?, ?, ?, ?)", 
                        (team_name, pokemon_list, pokepaste_url, notes, raw_paste))
         conn.commit()
         conn.close()
+        
     return redirect(url_for('index'))
 
 @app.route('/parse_replay', methods=['POST'])
 def parse_replay_route():
     url = request.form.get('replay_url')
-    user_name = request.form.get('user_name') or DEFAULT_USER # AQUI COGEMOS TU NICK SI LO PONES
+    user_name = request.form.get('user_name') or DEFAULT_USER
     series_id = request.form.get('series_id')
     team_name = request.form.get('team_name') or 'Equipo Principal Polilla'
     parsed = parse_showdown_replay(url, user_name)
