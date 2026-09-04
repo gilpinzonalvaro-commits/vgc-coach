@@ -128,6 +128,7 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
+# --- LÓGICA DE JUGADORES Y VICTORIAS BLINDADA ---
 def parse_showdown_replay(url, user_name=DEFAULT_USER):
     try:
         clean_url = url.split("?")[0].strip()
@@ -138,42 +139,53 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         data = resp.json()
         log = data.get("log", "")
         
-        if "|init|battle" in log:
-            games_logs = log.split("|init|battle")
-            if len(games_logs) > 1: log = "|init|battle" + games_logs[-1]
-                
+        # 1. Identificar jugadores ANTES de dividir el BO3
         players = {}
-        user_p = "p1"
-        normalized_user = "".join(e for e in user_name.lower() if e.isalnum())
-        winner_name = data.get("winner", "")
-        
         for line in log.split("\n"):
             parts = line.split("|")
             if len(parts) > 3 and parts[1] == "player":
-                p_id, p_name = parts[2], parts[3]
-                players[p_id] = p_name
-                norm_pname = "".join(e for e in p_name.lower() if e.isalnum())
-                if normalized_user in norm_pname: user_p = p_id
-            if len(parts) > 2 and parts[1] == "win": winner_name = parts[2]
+                if parts[2] not in players:
+                    players[parts[2]] = parts[3]
+                    
+        # 2. Asignar Identidad al Usuario de forma flexible
+        user_p = "p1"
+        if not user_name: user_name = DEFAULT_USER
+        norm_target = "".join(e for e in user_name.lower() if e.isalnum())
+        
+        for pid, pname in players.items():
+            norm_pname = "".join(e for e in pname.lower() if e.isalnum())
+            if norm_target in norm_pname or norm_pname in norm_target:
+                user_p = pid
+                break
                 
         opp_p = "p2" if user_p == "p1" else "p1"
+
+        # 3. Extraer Ganador Real
+        winner_name = data.get("winner", "")
+        if not winner_name:
+            for line in log.split("\n"):
+                parts = line.split("|")
+                if len(parts) > 2 and parts[1] == "win":
+                    winner_name = parts[2]
+
         user_won = False
         if winner_name:
             norm_winner = "".join(e for e in winner_name.lower() if e.isalnum())
             norm_player = "".join(e for e in players.get(user_p, "").lower() if e.isalnum())
-            if norm_player and norm_player == norm_winner: user_won = True
+            if norm_player and (norm_player in norm_winner or norm_winner in norm_player):
+                user_won = True
         
+        # Separar el último combate si es un log combinado de BO3
+        if "|init|battle" in log:
+            games_logs = log.split("|init|battle")
+            if len(games_logs) > 1: log = "|init|battle" + games_logs[-1]
+
         my_team, opp_team, my_leads, opp_leads, my_megas, opp_megas = [], [], [], [], [], []
         turns = 0
         first_ko = None
         key_moves = []
-        
-        # Variables para el Coach Report
-        user_misses = 0
-        user_immunities = 0
-        user_protect_fails = 0
-        opp_speed_control = False
-        opp_got_first_ko = False
+        user_misses, user_immunities, user_protect_fails = 0, 0, 0
+        opp_speed_control, opp_got_first_ko = False, False
         current_attacker = None
         
         for line in log.split("\n"):
@@ -200,8 +212,6 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                             if mega_mon not in my_megas: my_megas.append(mega_mon)
                         else:
                             if mega_mon not in opp_megas: opp_megas.append(mega_mon)
-                
-                # TRACKING DE EVENTOS PARA EL COACH
                 elif parts[1] == "move" and len(parts) > 3:
                     slot = parts[2]
                     move = parts[3]
@@ -209,18 +219,14 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                     else: 
                         current_attacker = "opp"
                         if move in ["Tailwind", "Trick Room"]: opp_speed_control = True
-                    
                     if move in ["Tailwind", "Trick Room", "Rain Dance", "Sunny Day", "Snowscape", "Sandstorm"]:
                         if f"{move} (T{turns})" not in key_moves: key_moves.append(f"{move} (T{turns})")
-                        
                 elif parts[1] == "miss":
                     if current_attacker == "user": user_misses += 1
                 elif parts[1] == "-immune":
                     if current_attacker == "user": user_immunities += 1
                 elif parts[1] == "-singleturn" and "Protect" in line:
-                    # Detecta si el rival se protegió y nosotros le atacamos en ese turno
                     if current_attacker == "user": user_protect_fails += 1
-
                 elif parts[1] == "faint" and not first_ko:
                     fainted_mon = parts[2].split(":")[1].strip() if ":" in parts[2] else parts[2]
                     side = "Tuyo" if parts[2].startswith(user_p) else "Rival"
@@ -230,7 +236,6 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         my_backs = [m for m in my_team if m not in my_leads][:2]
         opp_backs = [m for m in opp_team if m not in opp_leads][:2]
         archetype = detect_archetype(log, opp_team)
-        
         my_mega_str = " / ".join(set(my_megas)) if my_megas else "Ninguna"
         opp_mega_str = " / ".join(set(opp_megas)) if opp_megas else "Ninguna"
         
@@ -239,25 +244,17 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         if opp_mega_str != "Ninguna": tactical_notes.append(f"<b>Mega Rival:</b> {opp_mega_str}")
         if my_mega_str != "Ninguna": tactical_notes.append(f"<b>Tu Mega:</b> {my_mega_str}")
 
-        # GENERACIÓN DEL REPORTE DEL COACH
         report = []
         if not user_won:
             report.append("<span style='color: var(--loss-color); font-weight: 900;'>❌ ANÁLISIS CRÍTICO DE LA DERROTA:</span>")
-            if opp_got_first_ko:
-                report.append("📉 <b>Pérdida de Momentum:</b> El rival logró el primer KO. Tu Lead fue superado o leíste mal el turno 1. Revisa tus opciones defensivas en el early-game.")
-            if opp_speed_control:
-                report.append("⏱️ <b>Speed Control Dominado:</b> El rival impuso su control de velocidad (Viento Afín/Espacio Raro). Te faltaron herramientas como Mofa, Viento Hielo o posicionamiento defensivo para negarlo.")
-            if user_misses > 0:
-                report.append(f"🎯 <b>RNG / Ejecución:</b> Fallaste {user_misses} ataque(s). Revisa si ese movimiento de baja precisión era estrictamente necesario como Win Condition.")
-            if user_immunities > 0 or user_protect_fails > 0:
-                report.append(f"🛡️ <b>Errores de Predicción:</b> Golpeaste a Pokémon inmunes o en Protección {user_immunities + user_protect_fails} veces. El rival leyó tus intenciones. Cuidado con los Teratipos defensivos.")
-            if not opp_got_first_ko and not opp_speed_control and user_misses == 0 and user_immunities == 0:
-                report.append("♟️ <b>Matchup / Outplay:</b> Perdiste sin errores evidentes de dados o momentum inicial. Esto indica desventaja pura de equipo (Matchup) o un fuerte outplay en el late-game. Usa la calculadora NCP para estudiar este cruce.")
+            if opp_got_first_ko: report.append("📉 <b>Pérdida de Momentum:</b> El rival logró el primer KO. Tu Lead fue superado.")
+            if opp_speed_control: report.append("⏱️ <b>Speed Control Dominado:</b> El rival impuso su control de velocidad (Viento Afín/Espacio Raro).")
+            if user_misses > 0: report.append(f"🎯 <b>RNG / Ejecución:</b> Fallaste {user_misses} ataque(s).")
+            if user_immunities > 0 or user_protect_fails > 0: report.append(f"🛡️ <b>Errores de Predicción:</b> Golpeaste a Pokémon inmunes o en Protección {user_immunities + user_protect_fails} veces.")
+            if not opp_got_first_ko and not opp_speed_control and user_misses == 0 and user_immunities == 0: report.append("♟️ <b>Matchup / Outplay:</b> Perdiste por desventaja pura de equipo (Matchup).")
         else:
-            report.append("<span style='color: var(--win-color); font-weight: 900;'>✅ ANÁLISIS DE VICTORIA:</span> Ejecución táctica sólida. Mantuviste el control de tu Win-Condition.")
+            report.append("<span style='color: var(--win-color); font-weight: 900;'>✅ ANÁLISIS DE VICTORIA:</span> Ejecución táctica sólida.")
 
-        coach_report_str = "<br>".join(report)
-        
         return {
             "opponent": players.get(opp_p, "Rival Showdown"),
             "result": "Victoria" if user_won else "Derrota",
@@ -269,7 +266,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
             "archetype": archetype, "turns": turns,
             "first_ko": first_ko or "Sin KOs", "replay_url": clean_url,
             "tactical_summary": " • ".join(tactical_notes),
-            "coach_report": coach_report_str
+            "coach_report": "<br>".join(report)
         }
     except Exception as e:
         print(f"Error parseando replay: {e}")
@@ -279,64 +276,43 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
 def index():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    
     cursor.execute("SELECT id, team_name, pokemon_list, pokepaste_url, notes, raw_paste FROM user_teams ORDER BY id DESC")
     user_teams = []
     for r in cursor.fetchall():
         parsed_mons = parse_showdown_team(r[5]) if r[5] else []
-        user_teams.append({
-            "id": r[0], "name": r[1], "pokemon": r[2], 
-            "paste": r[3], "notes": r[4], "raw_paste": r[5], "parsed_mons": parsed_mons
-        })
-    
+        user_teams.append({"id": r[0], "name": r[1], "pokemon": r[2], "paste": r[3], "notes": r[4], "raw_paste": r[5], "parsed_mons": parsed_mons})
     cursor.execute("SELECT id, opponent, result, misplay_reason, notes, date FROM series_matches ORDER BY id DESC")
     series_rows = cursor.fetchall()
-    
-    series_list = []
-    total_series_wins = 0
+    series_list, total_series_wins = [], 0
     total_series_count = len(series_rows)
-    
     for s in series_rows:
         s_id, opp, s_res, misplay, notes, date = s
         cursor.execute("SELECT game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary, coach_report FROM games WHERE series_id = ? ORDER BY game_num ASC", (s_id,))
         games = cursor.fetchall()
-        
         g_wins = sum(1 for g in games if g[6] == 'Victoria')
         g_losses = sum(1 for g in games if g[6] == 'Derrota')
-        
         if g_wins >= 2: calc_result = "Victoria (BO3)"
         elif g_losses >= 2: calc_result = "Derrota (BO3)"
         else: calc_result = f"En curso ({g_wins}-{g_losses})"
-            
         if calc_result == "Victoria (BO3)": total_series_wins += 1
-        
-        series_list.append({
-            "id": s_id, "opponent": opp, "result": calc_result,
-            "misplay": misplay, "notes": notes, "date": date, "games": games
-        })
+        series_list.append({"id": s_id, "opponent": opp, "result": calc_result, "misplay": misplay, "notes": notes, "date": date, "games": games})
     
     series_winrate = round((total_series_wins / total_series_count * 100), 1) if total_series_count > 0 else 0
     cursor.execute("SELECT my_lead, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY my_lead HAVING COUNT(*) >= 1")
     lead_stats = [{"lead": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
-    
     cursor.execute("SELECT misplay_reason, COUNT(*) FROM series_matches WHERE result LIKE 'Derrota%' GROUP BY misplay_reason")
     misplay_stats = [{"reason": r[0], "count": r[1]} for r in cursor.fetchall()]
-    
     cursor.execute("SELECT team_name, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY team_name")
     team_performance = [{"name": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
-    
     cursor.execute("SELECT archetype, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY archetype")
     archetype_stats = [{"arch": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
-    
     cursor.execute("SELECT opp_mega, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games WHERE opp_mega != 'Ninguna' GROUP BY opp_mega")
     mega_stats = [{"mega": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
-    
     cursor.execute("SELECT SUM(cp) FROM tournaments")
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["El Algoritmo Analítico Avanzado está activado. Cada partida que registres recibirá un informe táctico profundo."]
-    
+    coach_advice = ["El Motor ahora detecta perfectamente tus victorias independientemente de si el formato BO3 está mezclado."]
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
 
@@ -361,7 +337,7 @@ def add_team():
 @app.route('/parse_replay', methods=['POST'])
 def parse_replay_route():
     url = request.form.get('replay_url')
-    user_name = request.form.get('user_name') or DEFAULT_USER
+    user_name = request.form.get('user_name') or DEFAULT_USER # AQUI COGEMOS TU NICK SI LO PONES
     series_id = request.form.get('series_id')
     team_name = request.form.get('team_name') or 'Equipo Principal Polilla'
     parsed = parse_showdown_replay(url, user_name)
