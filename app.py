@@ -83,7 +83,8 @@ def fetch_pokepaste(url):
         if not raw_url.endswith("/raw"): raw_url += "/raw"
         resp = requests.get(raw_url, headers={"User-Agent": "VGC-Coach"}, timeout=5)
         if resp.status_code == 200: return resp.text
-    except Exception as e: print(f"Error descargando paste: {e}")
+    except Exception as e:
+        print(f"Error descargando paste: {e}")
     return ""
 
 def parse_showdown_team(raw_paste):
@@ -128,49 +129,74 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
-# --- NUEVO: CONEXIÓN CON LA IA GEMINI ---
-def analyze_with_ai(log, user_name, opponent_name, user_won, my_leads, opp_leads):
-    api_key = os.environ.get("GEMINI_API_KEY")
+# --- CEREBRO OPENAI ACTIVADO ---
+def analyze_with_ai(clean_actions, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team):
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        return None # Si no hay API KEY, usamos el motor normal
+        print("❌ OPENAI_API_KEY no encontrada en las variables de entorno de Render.")
+        return None
         
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-    
+    url = "https://api.openai.com/v1/chat/completions"
     color = "#22c55e" if user_won else "#ef4444"
     resultado = "GANÓ" if user_won else "PERDIÓ"
     
-    prompt = f"""
-    Eres un coach experto en Pokémon VGC (Nivel Campeonato Mundial).
-    Analiza de forma crítica el siguiente log de combate de Pokémon Showdown. 
-    Tu jugador a evaluar es '{user_name}' (quien {resultado} la partida contra '{opponent_name}').
-    Leads de {user_name}: {', '.join(my_leads) if my_leads else 'Desconocidos'}.
-    Leads del rival: {', '.join(opp_leads) if opp_leads else 'Desconocidos'}.
-
-    Redacta un informe táctico experto directo y profundo.
-    REGLA ESTRICTA: Responde SOLO usando formato HTML (usa <b>, <br>, <ul>, <li>). NO uses Markdown (nada de asteriscos ** o hashtags ##).
-    
-    Estructura obligatoria:
-    <div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>
-        <b style='color: {color}; font-size: 1.15em;'>🤖 IA COACH: ANÁLISIS TÁCTICO AVANZADO</b>
-    </div>
-    <p>📌 <b>1. Team Preview y Leads:</b> [Analiza por qué los leads funcionaron o fracasaron según tipos y sinergias]</p>
-    <p>⏱️ <b>2. Control del Ritmo (Speed Control):</b> [Analiza quién dominó el tempo, Viento Afín, Trick Room o prioridades]</p>
-    <p>📉 <b>3. Momentum y KOs Críticos:</b> [Identifica en qué turno exacto se decidió la partida y por qué]</p>
-    <p>🎯 <b>4. Ajustes para el Game 2:</b> [Dale un consejo técnico y concreto de qué cambiar para la siguiente partida]</p>
-
-    Aquí tienes el log crudo del combate:
-    {log}
+    system_prompt = """
+    ROL: El Coach Táctico Principal de un jugador aspirante al Campeonato Mundial de Pokémon VGC. Tu nivel de análisis es hiper-especializado, quirúrgico y directo.
+    FORMATO DEL METAGAME: VGC con Megaevoluciones activas (NO existe la Teracristalización).
+    OBJETIVO: Generar una auditoría estricta en 4 bloques HTML usando los datos del combate.
     """
     
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    user_prompt = f"""
+    Analiza este combate donde tu jugador '{user_name}' {resultado} la partida contra '{opponent_name}'.
+
+    DATOS CLAVE:
+    - Equipo de {user_name}: {', '.join(my_team)}
+    - Leads de {user_name}: {', '.join(my_leads)}
+    - Equipo de {opponent_name}: {', '.join(opp_team)}
+    - Leads de {opponent_name}: {', '.join(opp_leads)}
+
+    SECUENCIA DE ACCIONES TURNO A TURNO:
+    {clean_actions}
+
+    REGLAS DE EVALUACIÓN TÁCTICA:
+    1. TEAM PREVIEW Y MEGA-FIT: Analiza la elección de la Megaevolución frente a los 6 del rival. Evalúa si el choque de Leads dejó al jugador en Jaque Mate Ofensivo o defensivo.
+    2. SPEED CONTROL: Determina quién controló la velocidad (Viento Afín, Espacio Raro, cambios de velocidad base al Megaevolucionar) y si se pudo denegar.
+    3. PUNTO DE INFLEXIÓN: Identifica el turno exacto donde la partida se rompió o se consolidó la victoria.
+    4. ADAPTACIÓN GAME 2: Da instrucciones concretas para el siguiente juego (cambio de Lead o Mega).
+
+    DEVUELVE EXACTAMENTE ESTA ESTRUCTURA HTML (NO uses markdown ni asteriscos **):
+    <div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>
+        <b style='color: {color}; font-size: 1.15em;'>🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>
+    </div>
+    <p>📌 <b>1. Team Preview y Mega-Fit:</b><br>[Análisis profundo del lead y la mega]</p>
+    <p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Análisis de control de velocidad]</p>
+    <p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Turno crítico y motivo]</p>
+    <p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Consejos específicos para el siguiente game]</p>
+    """
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "temperature": 0.2
+    }
     
     try:
-        response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=20)
+        response = requests.post(url, json=payload, headers=headers, timeout=20)
         if response.status_code == 200:
             data = response.json()
-            return data['candidates'][0]['content']['parts'][0]['text']
+            return data['choices'][0]['message']['content'].strip()
+        else:
+            print(f"❌ Error en OpenAI API. Código: {response.status_code}, Respuesta: {response.text}")
     except Exception as e:
-        print("Fallo en la API de Gemini:", e)
+        print(f"❌ Excepción en llamada a OpenAI API: {e}")
         
     return None
 
@@ -240,6 +266,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         turns, first_ko = 0, None
         current_turn, opp_speed_control = 0, False
         turn_logs, user_faints_log, opp_faints_log = [], [], []
+        clean_actions = []
 
         for line in log.split("\n"):
             parts = line.split("|")
@@ -249,6 +276,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
             if cmd == "turn":
                 current_turn = int(parts[2])
                 turns = current_turn
+                clean_actions.append(f"\n--- TURNO {current_turn} ---")
             elif cmd == "poke" and len(parts) > 3:
                 p_id, mon = parts[2], parts[3].split(",")[0].strip()
                 if p_id == user_p:
@@ -257,6 +285,8 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                     if mon not in opp_team: opp_team.append(mon)
             elif cmd in ["switch", "drag"] and len(parts) > 3:
                 slot, mon = parts[2], parts[3].split(",")[0].strip()
+                who = user_name if slot.startswith(user_p) else opponent_name
+                clean_actions.append(f"{who} cambia/entra con: {mon}")
                 if slot.startswith(user_p) and mon not in my_leads and len(my_leads) < 2: my_leads.append(mon)
                 elif slot.startswith(opp_p) and mon not in opp_leads and len(opp_leads) < 2: opp_leads.append(mon)
             elif cmd in ["detailschange", "-mega"] and "Mega" in line:
@@ -271,13 +301,23 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                         if mega_mon not in opp_megas: opp_megas.append(mega_mon)
             elif cmd == "move" and len(parts) > 3:
                 slot = parts[2]
-                last_move_used = parts[3]
-                current_attacker_is_user = slot.startswith(user_p)
-                if not current_attacker_is_user and last_move_used in ["Tailwind", "Trick Room"]: opp_speed_control = True
-                if last_move_used in ["Tailwind", "Trick Room", "Rain Dance", "Sunny Day"]:
-                    turn_logs.append(f"🌪️ <b>[T{current_turn}]</b> {'Tú' if current_attacker_is_user else 'El rival'} activó <b>{last_move_used}</b>.")
+                move = parts[3]
+                target = parts[4] if len(parts) > 4 else ""
+                who = user_name if slot.startswith(user_p) else opponent_name
+                clean_actions.append(f"{who} usa {move} contra {target}")
+                if not slot.startswith(user_p) and move in ["Tailwind", "Trick Room"]: opp_speed_control = True
+                if move in ["Tailwind", "Trick Room", "Rain Dance", "Sunny Day"]:
+                    turn_logs.append(f"🌪️ <b>[T{current_turn}]</b> {'Tú' if slot.startswith(user_p) else 'El rival'} activó <b>{move}</b>.")
+            elif cmd in ["-immune", "-fail"]:
+                target = parts[2] if len(parts) > 2 else ""
+                clean_actions.append(f"--> El movimiento FALLÓ o fue INMUNE en {target}")
+            elif cmd == "-singleturn" and "Protect" in line:
+                target = parts[2] if len(parts) > 2 else ""
+                clean_actions.append(f"--> {target} usó PROTECCIÓN")
             elif cmd == "faint" and len(parts) > 2:
                 fainted_mon = parts[2].split(":")[1].strip() if ":" in parts[2] else parts[2]
+                who_lost = user_name if parts[2].startswith(user_p) else opponent_name
+                clean_actions.append(f"💀 KO: {who_lost} pierde a {fainted_mon}")
                 if parts[2].startswith(user_p):
                     user_faints_log.append((current_turn, fainted_mon))
                     if not first_ko: first_ko = f"{fainted_mon} (Tuyo, T{current_turn})"
@@ -298,17 +338,16 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         if opp_mega_str != "Ninguna": tactical_notes.append(f"<b>Mega Rival:</b> {opp_mega_str}")
         if my_mega_str != "Ninguna": tactical_notes.append(f"<b>Tu Mega:</b> {my_mega_str}")
 
-        # 🚀 MAGIA IA AQUÍ: Llamamos a Gemini
-        ai_report = analyze_with_ai(log, user_name, opponent_name, user_won, my_leads, opp_leads)
+        actions_summary_str = "\n".join(clean_actions[:60])
+        ai_report = analyze_with_ai(actions_summary_str, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team)
         
         if ai_report:
             coach_report_str = ai_report
         else:
             coach_report_str = generate_heuristic_report(user_won, my_leads, opp_leads, my_backs, user_faints_log, opp_faints_log, opp_speed_control, archetype, opponent_name)
         
-        # Le pegamos debajo el log desglosado turno a turno
         if turn_logs:
-            turn_by_turn_html = f"<details style='margin-top:16px; cursor:pointer; background: var(--inner-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);'><summary style='font-weight:900; color:var(--accent-blue);'>📑 Ver Log Básico Turno a Turno</summary><div style='font-size:0.88em; margin-top:10px; color:var(--text-color); line-height: 1.6;'>" + "<br>".join(turn_logs) + "</div></details>"
+            turn_by_turn_html = f"<details style='margin-top:16px; cursor:pointer; background: var(--inner-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);'><summary style='font-weight:900; color:var(--accent-blue);'>📑 Ver Secuencia Resumida Turno a Turno</summary><div style='font-size:0.88em; margin-top:10px; color:var(--text-color); line-height: 1.6;'>" + "<br>".join(turn_logs) + "</div></details>"
             coach_report_str += turn_by_turn_html
 
         return {
@@ -368,7 +407,7 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["¡INTEGRACIÓN DE IA ACTIVADA! Tus replays ahora son analizados por Gemini 1.5 Flash para darte reportes tácticos idénticos a los de un jugador top mundial."]
+    coach_advice = ["¡MOTOR OPENAI ACTIVADO! El cerebro táctico de OpenAI está listo para analizar tus batallas a nivel de Campeonato Mundial."]
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
 
@@ -405,9 +444,9 @@ def parse_replay_route():
             series_id = cursor.lastrowid
         cursor.execute("SELECT COUNT(*) FROM games WHERE series_id = ?", (series_id,))
         game_num = cursor.fetchone()[0] + 1
-        cursor.execute('''INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, first_ko, replay_url, tactical_summary, coach_report)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-            (series_id, game_num, team_name, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['first_ko'], parsed['replay_url'], parsed['tactical_summary'], parsed['coach_report']))
+        cursor.execute('''INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary, coach_report)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+            (series_id, game_num, team_name, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['replay_url'], parsed['tactical_summary'], parsed['coach_report']))
         cursor.execute("SELECT result FROM games WHERE series_id = ?", (series_id,))
         results = [r[0] for r in cursor.fetchall()]
         wins, losses = results.count('Victoria'), results.count('Derrota')
