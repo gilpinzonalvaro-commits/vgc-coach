@@ -145,17 +145,14 @@ def get_deterministic_facts(log):
     facts = []
     log_lower = log.lower()
 
-    # 1. Detección procedimental de Espacio Raro (Trick Room)
     if "|move|" in log_lower and "trick room" in log_lower:
         facts.append("⚠️ EVENTO DE CAMPO: Espacio Raro (Trick Room) FUE ACTIVADO. REGLA INMUTABLE: Los Pokémon con menor velocidad base atacan primero. Prohibido sugerir aceleración de velocidad (Viento Afín/Clima) mientras esté activo.")
     else:
         facts.append("ℹ️ CAMPO DE VELOCIDAD: No se registró activación de Espacio Raro en los turnos evaluados.")
 
-    # 2. Detección procedimental de Viento Afín (Tailwind)
     if "|move|" in log_lower and "tailwind" in log_lower:
         facts.append("🌪️ EVENTO DE VELOCIDAD: Viento Afín (Tailwind) fue activado, duplicando (2x) la velocidad del bando atacante.")
 
-    # 3. Detección procedimental de Climas
     if "-weather|sandstorm" in log_lower or "sandstorm" in log_lower:
         facts.append("🏜️ CLIMA REGISTRADO: Tormenta de Arena activa (habilidades como Ímpetu Arena duplican velocidad 2x; tipo Roca gana +50% Def. Especial).")
     elif "-weather|raindance" in log_lower or "rain" in log_lower:
@@ -163,11 +160,9 @@ def get_deterministic_facts(log):
     elif "-weather|sunnyday" in log_lower or "sun" in log_lower:
         facts.append("☀️ CLIMA REGISTRADO: Sol activo (habilidades como Clorofila duplican velocidad 2x; ataques Fuego +50%, Agua -50%).")
 
-    # 4. Detección procedimental de Intimidación y Cambios de Stats
     if "|-ability|" in log_lower and "intimidate" in log_lower:
         facts.append("📉 EVENTO DE HABILIDAD: Intimidación registrada en pista (-1 Ataque físico). Evalúa si afectó a atacantes físicos o si activó habilidades de respuesta como Competitivo o Tenacidad (+2 en stats).")
 
-    # 5. Matriz de Inmunidades Nativa de VGC
     facts.append("🛡️ REGISTRO DE INMUNIDADES DE TIPO (0x): Tierra inmune a Eléctrico; Volador inmune a Tierra; Hada inmune a Dragón; Acero inmune a Veneno; Fantasma inmune a Normal/Lucha; Siniestro inmune a Psíquico.")
 
     return facts
@@ -188,37 +183,40 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
 
     facts_str = "\n".join([f"- {f}" for f in mechanic_facts]) if mechanic_facts else "- No se detectaron estados alterados de campo."
 
-    system_prompt = (
-        "ERES: Coach Táctico de Élite de Pokémon VGC. Tu único objetivo es realizar un análisis procedimental, lógico y 100% riguroso.\n\n"
-        "REGLAS SUPREMAS DE PROCESAMIENTO:\n"
-        "1. HECHOS PRE-PROCESADOS INCONTESTABLES: Basa tu dictamen en los Hechos de Campo extraídos por el servidor. Prohibido sugerir jugadas que contradigan los eventos de clima, velocidad o inmunidades registrados.\n"
-        "2. ANÁLISIS DE TIPOS DINÁMICO: Consulta la tabla de tipos oficial para la lista específica de Pokémon presentados en la consulta (my_team vs opp_team). Evalúa debilidades x4, resistencias e inmunidades sin asumir nombres predeterminados.\n"
-        "3. LITERATLIDAD DEL LOG: Cita únicamente ataques, eventos y turnos reales extraídos del log de la partida.\n"
-        "4. PLAN GAME 2 PROCEDIMENTAL: Selecciona combinaciones de leads dentro de los 6 Pokémon disponibles en el equipo del jugador que ofrezcan matchups de tipos y velocidad superiores frente a los 6 del rival."
-    )
-    
-    user_prompt = (
-        f"AUDITORÍA TÁCTICA PROCEDIMENTAL:\n\n"
-        f"DATOS DE LA SERIE:\n"
-        f"- Jugador Principal: '{user_name}' ({resultado} el combate)\n"
-        f"- Rival: '{opponent_name}'\n\n"
-        f"EQUIPOS REGISTRADOS:\n"
-        f"- Equipo del Jugador (6): {my_team_str} | Leads Usados: {my_leads_str}\n"
-        f"- Equipo del Rival (6): {opp_team_str} | Leads Usados: {opp_leads_str}\n"
-        f"- Arquetipo Detectado: {archetype}\n\n"
-        f"HECHOS PRE-PROCESADOS DEL CAMPO:\n"
-        f"{facts_str}\n\n"
-        f"REGISTRO TURNO A TURNO:\n"
-        f"{clean_actions_text}\n\n"
-        f"Devuelve la auditoría en formato HTML estricto (sin etiquetas markdown ```html):\n\n"
-        f"<div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>\n"
-        f"    <b style='color: {color}; font-size: 1.15em;'>🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>\n"
-        f"</div>\n"
-        f"<p>📌 <b>1. Team Preview y Matchup de Leads:</b><br>[Analiza la sinergia de los leads elegidos frente a los del rival según sus tipos reales y habilidades...]</p>\n"
-        f"<p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Evalúa la gestión de velocidad respetando estrictamente los Hechos Pre-Procesados sobre Espacio Raro, Viento Afín o Climas...]</p>\n"
-        f"<p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Indica los turnos exactos y factores determinantes del resultado registrados en el log...]</p>\n"
-        f"<p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Propón una pareja de leads alternativa o ajuste de cobertura utilizando los 6 Pokémon del jugador sin exponerlos a debilidades letales x4 del rival...]</p>"
-    )
+    system_prompt = f"""ERES: Coach Táctico de Élite de Pokémon VGC. Tu único objetivo es realizar un análisis procedimental, lógico y 100% riguroso.
+
+REGLAS SUPREMAS DE PROCESAMIENTO:
+1. HECHOS PRE-PROCESADOS INCONTESTABLES: Basa tu dictamen en los Hechos de Campo extraídos por el servidor. Prohibido sugerir jugadas que contradigan los eventos de clima, velocidad o inmunidades registrados.
+2. ANÁLISIS DE TIPOS DINÁMICO: Consulta la tabla de tipos oficial para la lista específica de Pokémon presentados en la consulta (my_team vs opp_team). Evalúa debilidades x4, resistencias e inmunidades sin asumir nombres predeterminados.
+3. LITERALIDAD DEL LOG: Cita únicamente ataques, eventos y turnos reales extraídos del log de la partida.
+4. PLAN GAME 2 PROCEDIMENTAL: Selecciona combinaciones de leads dentro de los 6 Pokémon disponibles en el equipo del jugador que ofrezcan matchups de tipos y velocidad superiores frente a los 6 del rival."""
+
+    user_prompt = f"""AUDITORÍA TÁCTICA PROCEDIMENTAL:
+
+DATOS DE LA SERIE:
+- Jugador Principal: '{user_name}' ({resultado} el combate)
+- Rival: '{opponent_name}'
+
+EQUIPOS REGISTRADOS:
+- Equipo del Jugador (6): {my_team_str} | Leads Usados: {my_leads_str}
+- Equipo del Rival (6): {opp_team_str} | Leads Usados: {opp_leads_str}
+- Arquetipo Detectado: {archetype}
+
+HECHOS PRE-PROCESADOS DEL CAMPO:
+{facts_str}
+
+REGISTRO TURNO A TURNO:
+{clean_actions_text}
+
+Devuelve la auditoría en formato HTML estricto (sin etiquetas markdown ```html):
+
+<div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>
+    <b style='color: {color}; font-size: 1.15em;'>🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>
+</div>
+<p>📌 <b>1. Team Preview y Matchup de Leads:</b><br>[Analiza la sinergia de los leads elegidos frente a los del rival según sus tipos reales y habilidades...]</p>
+<p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Evalúa la gestión de velocidad respetando estrictamente los Hechos Pre-Procesados sobre Espacio Raro, Viento Afín o Climas...]</p>
+<p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Indica los turnos exactos y factores determinantes del resultado registrados en el log...]</p>
+<p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Propón una pareja de leads alternativa o ajuste de cobertura utilizando los 6 Pokémon del jugador sin exponerlos a debilidades letales x4 del rival...]</p>"""
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -367,215 +365,3 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                 fainted_mon = parts[2].split(":")[1].strip() if ":" in parts[2] else parts[2]
                 who_lost = get_owner(parts[2])
                 clean_actions.append(f"💀 KO: {who_lost} pierde a {fainted_mon}")
-                
-                if first_ko is None:
-                    first_ko = f"T{current_turn} ({fainted_mon})"
-                
-                if parts[2].startswith(user_p):
-                    turn_logs.append(f"💀 <b>[T{current_turn}] KO:</b> Tu <b>{fainted_mon}</b> cayó.")
-                else:
-                    turn_logs.append(f"💥 <b>[T{current_turn}] KO:</b> Rival <b>{fainted_mon}</b> cayó.")
-
-        my_backs = [m for m in my_team if m not in my_leads][:2]
-        opp_backs = [m for m in opp_team if m not in opp_leads][:2]
-        archetype = detect_archetype(log, opp_team)
-        my_mega_str = " / ".join(set(my_megas)) if my_megas else "Ninguna"
-        opp_mega_str = " / ".join(set(opp_megas)) if opp_megas else "Ninguna"
-        
-        tactical_notes = [f"<b>Duración:</b> {turns} turnos", f"<b>Arquetipo:</b> {archetype}"]
-        if first_ko: tactical_notes.append(f"<b>Primer KO:</b> {first_ko}")
-        if opp_mega_str != "Ninguna": tactical_notes.append(f"<b>Mega Rival:</b> {opp_mega_str}")
-        if my_mega_str != "Ninguna": tactical_notes.append(f"<b>Tu Mega:</b> {my_mega_str}")
-
-        full_actions_str = "\n".join(clean_actions)
-        
-        # PRE-PROCESAMIENTO PROCEDIMENTAL AGNÓSTICO
-        mechanic_facts = get_deterministic_facts(log)
-        
-        ai_report = analyze_with_ai(full_actions_str, target_user, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype, mechanic_facts)
-        
-        if ai_report: coach_report_str = ai_report
-        else: coach_report_str = generate_heuristic_report(user_won, my_leads, opp_leads, archetype)
-        
-        if turn_logs:
-            turn_by_turn_html = f"<details style='margin-top:16px; cursor:pointer; background: var(--inner-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);'><summary style='font-weight:900; color:var(--poke-cyan);'>📑 Ver Log Resumido de Eventos Clave</summary><div style='font-size:0.88em; margin-top:10px; color:var(--text-main); line-height: 1.6;'>" + "<br>".join(turn_logs) + "</div></details>"
-            coach_report_str += turn_by_turn_html
-
-        return {
-            "opponent": opponent_name,
-            "result": "Victoria" if user_won else "Derrota",
-            "my_lead": " / ".join(my_leads) if my_leads else "N/A",
-            "my_back": " / ".join(my_backs) if my_backs else "N/A",
-            "opp_lead": " / ".join(opp_leads) if opp_leads else "N/A",
-            "opp_back": " / ".join(opp_backs) if opp_backs else "N/A",
-            "my_mega": my_mega_str, "opp_mega": opp_mega_str,
-            "archetype": archetype, "turns": turns,
-            "first_ko": first_ko or "Sin KOs", "replay_url": clean_url,
-            "tactical_summary": " • ".join(tactical_notes),
-            "coach_report": coach_report_str
-        }
-    except Exception as e:
-        print(f"Error parseando replay: {e}")
-        return None
-
-@app.route('/')
-def index():
-    conn, db_type = get_db()
-    cursor = conn.cursor()
-    placeholder = "%s" if db_type == "postgres" else "?"
-    
-    cursor.execute("SELECT id, team_name, pokemon_list, pokepaste_url, notes, raw_paste FROM user_teams ORDER BY id DESC")
-    user_teams = []
-    for r in cursor.fetchall():
-        parsed_mons = parse_showdown_team(r[5]) if r[5] else []
-        user_teams.append({"id": r[0], "name": r[1], "pokemon": r[2], "paste": r[3], "notes": r[4], "raw_paste": r[5], "parsed_mons": parsed_mons})
-    
-    cursor.execute("SELECT id, opponent, result, misplay_reason, notes, date FROM series_matches ORDER BY id DESC")
-    series_rows = cursor.fetchall()
-    series_list, total_series_wins = [], 0
-    total_series_count = len(series_rows)
-    for s in series_rows:
-        s_id, opp, s_res, misplay, notes, date = s
-        opp_display = opp.strip() if (opp and opp.strip()) else "Rival Showdown"
-        
-        cursor.execute(f"SELECT game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary, coach_report FROM games WHERE series_id = {placeholder} ORDER BY game_num ASC", (s_id,))
-        games = cursor.fetchall()
-        g_wins = sum(1 for g in games if g[6] == 'Victoria')
-        g_losses = sum(1 for g in games if g[6] == 'Derrota')
-        if g_wins >= 2: calc_result = "Victoria (BO3)"
-        elif g_losses >= 2: calc_result = "Derrota (BO3)"
-        else: calc_result = f"En curso ({g_wins}-{g_losses})"
-        if calc_result == "Victoria (BO3)": total_series_wins += 1
-        
-        date_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)[:10]
-        series_list.append({"id": s_id, "opponent": opp_display, "result": calc_result, "misplay": misplay, "notes": notes, "date": date_str, "games": games})
-    
-    series_winrate = round((total_series_wins / total_series_count * 100), 1) if total_series_count > 0 else 0
-    cursor.execute("SELECT my_lead, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY my_lead HAVING COUNT(*) >= 1")
-    lead_stats = [{"lead": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
-    cursor.execute("SELECT misplay_reason, COUNT(*) FROM series_matches WHERE result LIKE 'Derrota%' GROUP BY misplay_reason")
-    misplay_stats = [{"reason": r[0], "count": r[1]} for r in cursor.fetchall()]
-    cursor.execute("SELECT team_name, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY team_name")
-    team_performance = [{"name": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
-    cursor.execute("SELECT archetype, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY archetype")
-    archetype_stats = [{"arch": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
-    cursor.execute("SELECT opp_mega, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games WHERE opp_mega != 'Ninguna' GROUP BY opp_mega")
-    mega_stats = [{"mega": r[0], "total": r[1], "wins": r[2], "wr": round((r[2]/r[1]*100), 1)} for r in cursor.fetchall()]
-    cursor.execute("SELECT SUM(cp) FROM tournaments")
-    total_cp = cursor.fetchone()[0] or 0
-    cp_pct = round(min((total_cp / 900) * 100, 100), 1)
-    
-    db_status = "☁️ BASE DE DATOS POSTGRESQL (NEON)" if db_type == "postgres" else "💾 BASE DE DATOS LOCAL (SQLITE)"
-    coach_advice = [f"ESTADO DE LA BASE DE DATOS: {db_status}"]
-    conn.close()
-    return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
-
-@app.route('/add_team', methods=['GET', 'POST'])
-def add_team():
-    if request.method == 'GET': return redirect(url_for('index'))
-    team_name = request.form.get('team_name')
-    pokepaste_url = request.form.get('pokepaste_url', '')
-    notes = request.form.get('notes', '')
-    raw_paste = fetch_pokepaste(pokepaste_url)
-    parsed_mons = parse_showdown_team(raw_paste)
-    pokemon_list = ", ".join([mon['name'] for mon in parsed_mons])
-    if not pokemon_list: pokemon_list = "⚠️ Error leyendo Paste."
-    if team_name:
-        conn, db_type = get_db()
-        cursor = conn.cursor()
-        if db_type == "postgres":
-            cursor.execute("""
-                INSERT INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) 
-                VALUES (%s, %s, %s, %s, %s) 
-                ON CONFLICT (team_name) DO UPDATE SET 
-                pokemon_list = EXCLUDED.pokemon_list, 
-                pokepaste_url = EXCLUDED.pokepaste_url, 
-                notes = EXCLUDED.notes, 
-                raw_paste = EXCLUDED.raw_paste
-            """, (team_name, pokemon_list, pokepaste_url, notes, raw_paste))
-        else:
-            cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) VALUES (?, ?, ?, ?, ?)", 
-                           (team_name, pokemon_list, pokepaste_url, notes, raw_paste))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/parse_replay', methods=['GET', 'POST'])
-def parse_replay_route():
-    if request.method == 'GET': return redirect(url_for('index'))
-    url = request.form.get('replay_url')
-    user_name = request.form.get('user_name') or DEFAULT_USER
-    series_id = request.form.get('series_id')
-    team_name = request.form.get('team_name') or 'Equipo Principal Polilla'
-    parsed = parse_showdown_replay(url, user_name)
-    if parsed:
-        conn, db_type = get_db()
-        cursor = conn.cursor()
-        placeholder = "%s" if db_type == "postgres" else "?"
-        opp_name_clean = parsed['opponent'].strip() if parsed['opponent'] and parsed['opponent'].strip() else "Rival Showdown"
-        
-        if not series_id or series_id == "new":
-            if db_type == "postgres":
-                cursor.execute("INSERT INTO series_matches (opponent, result) VALUES (%s, %s) RETURNING id", (opp_name_clean, 'En curso'))
-                series_id = cursor.fetchone()[0]
-            else:
-                cursor.execute("INSERT INTO series_matches (opponent, result) VALUES (?, ?)", (opp_name_clean, 'En curso'))
-                series_id = cursor.lastrowid
-                
-        cursor.execute(f"SELECT COUNT(*) FROM games WHERE series_id = {placeholder}", (series_id,))
-        game_num = cursor.fetchone()[0] + 1
-        
-        cursor.execute(f'''INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary, coach_report)
-            VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})''', 
-            (series_id, game_num, team_name, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['replay_url'], parsed['tactical_summary'], parsed['coach_report']))
-        
-        cursor.execute(f"SELECT result FROM games WHERE series_id = {placeholder}", (series_id,))
-        results = [r[0] for r in cursor.fetchall()]
-        wins, losses = results.count('Victoria'), results.count('Derrota')
-        if wins >= 2: cursor.execute(f"UPDATE series_matches SET result = 'Victoria (BO3)' WHERE id = {placeholder}", (series_id,))
-        elif losses >= 2: cursor.execute(f"UPDATE series_matches SET result = 'Derrota (BO3)' WHERE id = {placeholder}", (series_id,))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/update_misplay', methods=['GET', 'POST'])
-def update_misplay():
-    if request.method == 'GET': return redirect(url_for('index'))
-    series_id = request.form.get('series_id')
-    reason = request.form.get('reason')
-    notes = request.form.get('notes', '')
-    conn, db_type = get_db()
-    cursor = conn.cursor()
-    placeholder = "%s" if db_type == "postgres" else "?"
-    cursor.execute(f"UPDATE series_matches SET misplay_reason = {placeholder}, notes = {placeholder} WHERE id = {placeholder}", (reason, notes, series_id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete_series', methods=['GET', 'POST'])
-def delete_series():
-    if request.method == 'GET': return redirect(url_for('index'))
-    series_id = request.form.get('series_id')
-    conn, db_type = get_db()
-    cursor = conn.cursor()
-    placeholder = "%s" if db_type == "postgres" else "?"
-    cursor.execute(f"DELETE FROM games WHERE series_id = {placeholder}", (series_id,))
-    cursor.execute(f"DELETE FROM series_matches WHERE id = {placeholder}", (series_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete_team', methods=['GET', 'POST'])
-def delete_team():
-    if request.method == 'GET': return redirect(url_for('index'))
-    team_id = request.form.get('team_id')
-    if team_id:
-        conn, db_type = get_db()
-        cursor = conn.cursor()
-        placeholder = "%s" if db_type == "postgres" else "?"
-        cursor.execute(f"DELETE FROM user_teams WHERE id = {placeholder}", (team_id,))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-@app
