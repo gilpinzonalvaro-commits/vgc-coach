@@ -140,8 +140,40 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
-# --- MOTOR DE IA UNIVERSAL APLICABLE A CUALQUIER EQUIPO Y ARQUETIPO ---
-def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype):
+# --- PRE-PROCESADOR PROCEDIMENTAL Y AGNÓSTICO DE EVENTOS VGC ---
+def get_deterministic_facts(log):
+    facts = []
+    log_lower = log.lower()
+
+    # 1. Detección procedimental de Espacio Raro (Trick Room)
+    if "|move|" in log_lower and "trick room" in log_lower:
+        facts.append("⚠️ EVENTO DE CAMPO: Espacio Raro (Trick Room) FUE ACTIVADO. REGLA INMUTABLE: Los Pokémon con menor velocidad base atacan primero. Prohibido sugerir aceleración de velocidad (Viento Afín/Clima) mientras esté activo.")
+    else:
+        facts.append("ℹ️ CAMPO DE VELOCIDAD: No se registró activación de Espacio Raro en los turnos evaluados.")
+
+    # 2. Detección procedimental de Viento Afín (Tailwind)
+    if "|move|" in log_lower and "tailwind" in log_lower:
+        facts.append("🌪️ EVENTO DE VELOCIDAD: Viento Afín (Tailwind) fue activado, duplicando (2x) la velocidad del bando atacante.")
+
+    # 3. Detección procedimental de Climas
+    if "-weather|sandstorm" in log_lower or "sandstorm" in log_lower:
+        facts.append("🏜️ CLIMA REGISTRADO: Tormenta de Arena activa (habilidades como Ímpetu Arena duplican velocidad 2x; tipo Roca gana +50% Def. Especial).")
+    elif "-weather|raindance" in log_lower or "rain" in log_lower:
+        facts.append("🌧️ CLIMA REGISTRADO: Lluvia activa (habilidades como Nado Rápido duplican velocidad 2x; ataques Agua +50%, Fuego -50%).")
+    elif "-weather|sunnyday" in log_lower or "sun" in log_lower:
+        facts.append("☀️ CLIMA REGISTRADO: Sol activo (habilidades como Clorofila duplican velocidad 2x; ataques Fuego +50%, Agua -50%).")
+
+    # 4. Detección procedimental de Intimidación y Cambios de Stats
+    if "|-ability|" in log_lower and "intimidate" in log_lower:
+        facts.append("📉 EVENTO DE HABILIDAD: Intimidación registrada en pista (-1 Ataque físico). Evalúa si afectó a atacantes físicos o si activó habilidades de respuesta como Competitivo o Tenacidad (+2 en stats).")
+
+    # 5. Matriz de Inmunidades Nativa de VGC
+    facts.append("🛡️ REGISTRO DE INMUNIDADES DE TIPO (0x): Tierra inmune a Eléctrico; Volador inmune a Tierra; Hada inmune a Dragón; Acero inmune a Veneno; Fantasma inmune a Normal/Lucha; Siniestro inmune a Psíquico.")
+
+    return facts
+
+# --- MOTOR DE IA PROCEDIMENTAL ---
+def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype, mechanic_facts):
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key: return None
         
@@ -154,40 +186,38 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
     opp_team_str = ", ".join(opp_team)
     opp_leads_str = ", ".join(opp_leads)
 
+    facts_str = "\n".join([f"- {f}" for f in mechanic_facts]) if mechanic_facts else "- No se detectaron estados alterados de campo."
+
     system_prompt = (
-        "ERES: Coach Táctico de Élite de Pokémon VGC. Tu análisis debe ser 100% REGIDO POR LAS REGLAS OFICIALES Y FIEL AL LOG.\n"
-        "FORMATO METAGAME: VGC Gen 9 con Megaevoluciones.\n\n"
-        "REGLAS TÁCTICAS DINÁMICAS Y RIGUROSAS:\n"
-        "1. TABLA DE TIPOS E INMUNIDADES (OBLIGATORIO): Consulta SIEMPRE la tabla de tipos oficial para los Pokémon involucrados en el combate.\n"
-        "   - Respeta estrictamente las inmunidades (Tierra es inmune a Eléctrico, Volador a Tierra, Hada a Dragón, Acero a Veneno, Fantasma a Normal/Lucha, Siniestro a Psíquico).\n"
-        "   - Evita sugerir movimientos que no afecten por inmunidad o recomendar muros defensivos expuestos a debilidades x4 (ej. Tyranitar ante Lucha).\n\n"
-        "2. CONTROL DE VELOCIDAD DINÁMICO:\n"
-        "   - Evalúa las habilidades de clima/velocidad activas en la partida (Ímpetu Arena, Nado Rápido, Clorofila, Viento Afín, Espacio Raro).\n"
-        "   - Aplica los multiplicadores de velocidad reales (2x en clima o Viento Afín) para determinar qué Pokémon actúa primero.\n\n"
-        "3. PROHIBIDO ALUCINAR:\n"
-        "   - Usa ÚNICAMENTE nombres de ataques y eventos que aparezcan literalmente en el log.\n"
-        "   - Basa la recomendación del Game 2 en las 6 opciones del equipo del jugador frente a las 6 del rival, priorizando matchups favorables y control del ritmo."
+        "ERES: Coach Táctico de Élite de Pokémon VGC. Tu único objetivo es realizar un análisis procedimental, lógico y 100% riguroso.\n\n"
+        "REGLAS SUPREMAS DE PROCESAMIENTO:\n"
+        "1. HECHOS PRE-PROCESADOS INCONTESTABLES: Basa tu dictamen en los Hechos de Campo extraídos por el servidor. Prohibido sugerir jugadas que contradigan los eventos de clima, velocidad o inmunidades registrados.\n"
+        "2. ANÁLISIS DE TIPOS DINÁMICO: Consulta la tabla de tipos oficial para la lista específica de Pokémon presentados en la consulta (my_team vs opp_team). Evalúa debilidades x4, resistencias e inmunidades sin asumir nombres predeterminados.\n"
+        "3. LITERATLIDAD DEL LOG: Cita únicamente ataques, eventos y turnos reales extraídos del log de la partida.\n"
+        "4. PLAN GAME 2 PROCEDIMENTAL: Selecciona combinaciones de leads dentro de los 6 Pokémon disponibles en el equipo del jugador que ofrezcan matchups de tipos y velocidad superiores frente a los 6 del rival."
     )
     
     user_prompt = (
-        f"AUDITORÍA DE COMBATE COMPLETO:\n\n"
-        f"JUGADORES Y RESULTADO:\n"
+        f"AUDITORÍA TÁCTICA PROCEDIMENTAL:\n\n"
+        f"DATOS DE LA SERIE:\n"
         f"- Jugador Principal: '{user_name}' ({resultado} el combate)\n"
         f"- Rival: '{opponent_name}'\n\n"
-        f"EQUIPOS:\n"
-        f"- Equipo del Jugador: {my_team_str} (Leads Usados: {my_leads_str})\n"
-        f"- Equipo del Rival: {opp_team_str} (Leads Usados: {opp_leads_str})\n"
+        f"EQUIPOS REGISTRADOS:\n"
+        f"- Equipo del Jugador (6): {my_team_str} | Leads Usados: {my_leads_str}\n"
+        f"- Equipo del Rival (6): {opp_team_str} | Leads Usados: {opp_leads_str}\n"
         f"- Arquetipo Detectado: {archetype}\n\n"
-        f"LOG REGISTRADO TURNO A TURNO:\n"
+        f"HECHOS PRE-PROCESADOS DEL CAMPO:\n"
+        f"{facts_str}\n\n"
+        f"REGISTRO TURNO A TURNO:\n"
         f"{clean_actions_text}\n\n"
-        f"Devuelve la auditoría en este formato HTML exacto (sin etiquetas markdown ```html):\n\n"
+        f"Devuelve la auditoría en formato HTML estricto (sin etiquetas markdown ```html):\n\n"
         f"<div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>\n"
         f"    <b style='color: {color}; font-size: 1.15em;'>🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>\n"
         f"</div>\n"
-        f"<p>📌 <b>1. Team Preview y Mega-Fit:</b><br>[Analiza la selección de leads y sinergia según la tabla de tipos oficial...]</p>\n"
-        f"<p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Evalúa la velocidad considerando movimientos de control o habilidades activas en el log...]</p>\n"
-        f"<p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Señala el turno exacto y KOs reales registrados en el log...]</p>\n"
-        f"<p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Recomendación táctica concreta seleccionando los mejores leads dentro de los 6 Pokémon del jugador frente al rival...]</p>"
+        f"<p>📌 <b>1. Team Preview y Matchup de Leads:</b><br>[Analiza la sinergia de los leads elegidos frente a los del rival según sus tipos reales y habilidades...]</p>\n"
+        f"<p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Evalúa la gestión de velocidad respetando estrictamente los Hechos Pre-Procesados sobre Espacio Raro, Viento Afín o Climas...]</p>\n"
+        f"<p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Indica los turnos exactos y factores determinantes del resultado registrados en el log...]</p>\n"
+        f"<p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Propón una pareja de leads alternativa o ajuste de cobertura utilizando los 6 Pokémon del jugador sin exponerlos a debilidades letales x4 del rival...]</p>"
     )
 
     headers = {
@@ -358,7 +388,11 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         if my_mega_str != "Ninguna": tactical_notes.append(f"<b>Tu Mega:</b> {my_mega_str}")
 
         full_actions_str = "\n".join(clean_actions)
-        ai_report = analyze_with_ai(full_actions_str, target_user, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype)
+        
+        # PRE-PROCESAMIENTO PROCEDIMENTAL AGNÓSTICO
+        mechanic_facts = get_deterministic_facts(log)
+        
+        ai_report = analyze_with_ai(full_actions_str, target_user, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype, mechanic_facts)
         
         if ai_report: coach_report_str = ai_report
         else: coach_report_str = generate_heuristic_report(user_won, my_leads, opp_leads, archetype)
@@ -544,19 +578,4 @@ def delete_team():
         conn.close()
     return redirect(url_for('index'))
 
-@app.route('/add_cp', methods=['GET', 'POST'])
-def add_cp():
-    if request.method == 'GET': return redirect(url_for('index'))
-    name = request.form.get('name') or 'Torneo VGC'
-    cp = int(request.form.get('cp') or 0)
-    if cp > 0:
-        conn, db_type = get_db()
-        cursor = conn.cursor()
-        placeholder = "%s" if db_type == "postgres" else "?"
-        cursor.execute(f"INSERT INTO tournaments (name, cp) VALUES ({placeholder}, {placeholder})", (name, cp))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+@app
