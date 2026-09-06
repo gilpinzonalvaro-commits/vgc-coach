@@ -140,7 +140,7 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
-# --- MOTOR DE IA BLINDADO: TEMPERATURA 0.0 Y COHERENCIA TÁCTICA PARA GAME 2 ---
+# --- MOTOR DE IA BLINDADO CONTRA ALUCINACIONES TÁCTICAS ---
 def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype):
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key: return None
@@ -150,44 +150,39 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
     resultado = "GANÓ" if user_won else "PERDIÓ"
     
     system_prompt = f"""
-    ERES: Coach Táctico de Élite de Pokémon VGC. Tu análisis debe ser 100% FIEL Y EXACTO al log de eventos recibido.
-    FORMATO METAGAME: VGC Gen 9 con Megaevoluciones (incluyendo formas Mega personalizadas/National Dex).
+    ERES: Coach Táctico de Élite de Pokémon VGC. Tu análisis debe ser 100% FIEL Y EXACTO al log de eventos.
+    FORMATO METAGAME: VGC Gen 9 con Megaevoluciones.
 
-    REGLAS DE ORO (PROHIBIDO ALUCINAR Y ERRORES TÁCTICOS):
-    1. TABLA DE TIPOS RIGUROSA: Verifica doblemente las combinaciones de tipos antes de declarar debilidades. Ejemplo: Excadrill (Acero/Tierra) RESISTE Hada y es NEUTRO a Hielo.
-    2. NOMBRES LITERALES DE MOVIMIENTOS: Usa ÚNICAMENTE los nombres exactos de los movimientos presentes en el log.
-    3. Si el arquetipo es '{archetype}', analiza cómo afectó la velocidad sin contradecir la cabecera.
-    4. Cita los turnos exactos (ej. Turno 1) para cada KO o jugada determinante.
-    5. COHERENCIA TÁCTICA PARA EL GAME 2 (MUY IMPORTANTE): 
-       - NUNCA sugieras un Lead de tu equipo que sea débil a los ataques STAB de los leads conocidos del rival (Ej: NUNCA sugieras un tipo Volador frente a un Eléctrico).
-       - NUNCA recomiendes un dúo de atacantes físicos si el rival lidera con un Pokémon con Intimidación (como Incineroar).
-       - Basa tu sugerencia del Game 2 en respuestas de tipo favorables y control de velocidad inteligente.
+    REGLAS DE ORO (PROHIBIDO ALUCINAR):
+    1. TABLA DE TIPOS: Eres experto en la tabla de tipos. Verifica mentalmente las debilidades de cada Pokémon antes de hablar. Ejemplo: Excadrill (Acero/Tierra) resiste Hada y es neutro a Hielo. NUNCA inventes debilidades.
+    2. NOMBRES LITERALES DE MOVIMIENTOS: Usa ÚNICAMENTE los nombres exactos presentes en el log. Si no sale 'Zap Cannon', NUNCA lo escribas.
+    3. Cita los turnos exactos (ej. Turno 1) para cada KO.
+    4. GAME 2: NUNCA sugieras un Lead de tu equipo que sea débil a los ataques principales del rival. NUNCA recomiendes atacantes físicos si el rival lidera con Intimidación (como Incineroar).
     """
     
     user_prompt = f"""
     AUDITORÍA DE COMBATE COMPLETO:
 
-    JUGADORES Y RESULTADO:
-    - Jugador Principal: '{user_name}' ({resultado} el combate)
+    JUGADORES:
+    - Jugador Principal: '{user_name}' ({resultado})
     - Rival: '{opponent_name}'
 
-    EQUIPOS Y ALINEACIÓN INICIAL:
-    - Equipo de {user_name}: {', '.join(my_team)}
-    - Leads de {user_name}: {', '.join(my_leads)}
-    - Equipo del Rival ({opponent_name}): {', '.join(opp_team)}
-    - Leads del Rival: {', '.join(opp_leads)}
+    EQUIPOS:
+    - Tus Pokémon: {', '.join(my_team)} (Tus Leads: {', '.join(my_leads)})
+    - Pokémon Rival: {', '.join(opp_team)} (Leads Rival: {', '.join(opp_leads)})
 
-    LOG TURNO A TURNO DEL COMBATE:
+    LOG DEL COMBATE:
     {clean_actions_text}
 
-    GENERA LA AUDITORÍA EN HTML STRICTO (Sin sintaxis Markdown ```` html ni asteriscos):
-    <div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>
-        <b style='color: {color}; font-size: 1.15em;'>🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>
+    Genera el informe reemplazando los textos entre paréntesis con tu análisis técnico. Devuelve SOLO este HTML, sin código markdown extra:
+
+    <div style="border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;">
+        <b style="color: {color}; font-size: 1.15em;">🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>
     </div>
-    <p>📌 <b>1. Team Preview y Mega-Fit:</b><br>[Analiza los leads y las megas respetando estrictamente la tabla de tipos oficial]</p>
-    <p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Evalúa el control de velocidad basándote solo en los movimientos jugados en el log]</p>
-    <p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Indica el turno exacto de los KOs usando exclusivamente los nombres de ataques que figuran en el log]</p>
-    <p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Instrucción concreta, lógica y segura para el siguiente juego: cambios de lead que eviten amenazas o Intimidación]</p>
+    <p>📌 <b>1. Team Preview y Mega-Fit:</b><br>(Redacta aquí tu análisis sobre la selección de leads y sinergia...)</p>
+    <p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>(Redacta aquí tu evaluación de la gestión de velocidad...)</p>
+    <p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>(Indica aquí el turno crítico y los KOs clave usando datos reales del log...)</p>
+    <p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>(Redacta aquí tu recomendación específica, lógica y sin errores de tipos para ganar el Game 2...)</p>
     """
 
     headers = {
@@ -201,7 +196,7 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        "temperature": 0.0
+        "temperature": 0.1
     }
     
     try:
