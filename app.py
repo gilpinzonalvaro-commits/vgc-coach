@@ -140,7 +140,7 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
-# --- MOTOR DE IA BLINDADO CONTRA ALUCINACIONES TÁCTICAS ---
+# --- MOTOR DE IA CON REGLAS Y TABLA DE TIPOS INTEGRADA ---
 def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype):
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key: return None
@@ -150,39 +150,52 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
     resultado = "GANÓ" if user_won else "PERDIÓ"
     
     system_prompt = f"""
-    ERES: Coach Táctico de Élite de Pokémon VGC. Tu análisis debe ser 100% FIEL Y EXACTO al log de eventos.
-    FORMATO METAGAME: VGC Gen 9 con Megaevoluciones.
+    ERES: Coach Táctico de Élite de Pokémon VGC (Nivel Campeonato Mundial). Tu análisis debe ser 100% REGIDO POR LAS REGLAS OFICIALES Y FIEL AL LOG.
+    FORMATO METAGAME: VGC Gen 9 con Megaevoluciones (incluyendo formas Mega personalizadas/National Dex).
 
-    REGLAS DE ORO (PROHIBIDO ALUCINAR):
-    1. TABLA DE TIPOS: Eres experto en la tabla de tipos. Verifica mentalmente las debilidades de cada Pokémon antes de hablar. Ejemplo: Excadrill (Acero/Tierra) resiste Hada y es neutro a Hielo. NUNCA inventes debilidades.
-    2. NOMBRES LITERALES DE MOVIMIENTOS: Usa ÚNICAMENTE los nombres exactos presentes en el log. Si no sale 'Zap Cannon', NUNCA lo escribas.
-    3. Cita los turnos exactos (ej. Turno 1) para cada KO.
-    4. GAME 2: NUNCA sugieras un Lead de tu equipo que sea débil a los ataques principales del rival. NUNCA recomiendes atacantes físicos si el rival lidera con Intimidación (como Incineroar).
+    MATRIZ INMóVIL DE TABLA DE TIPOS Y REGLAS VGC (ESTRICTO CUMPLIMIENTO):
+    1. INMUNIDADES ABSOLUTAS (Daño x0):
+       - Tipo TIERRA es 100% INMUNE a ataques ELÉCTRICOS (Ejemplo: Excadrill es Tierra/Acero, NUNCA recibe daño de ataques eléctricos de Raichu o Mega Raichu).
+       - Tipo VOLADOR es 100% INMUNE a ataques de TIERRA.
+       - Tipo HADA es 100% INMUNE a ataques Dragón.
+       - Tipo ACERO es 100% INMUNE a ataques de Veneno.
+       - Tipo FANTASMA es 100% INMUNE a Normal y Lucha.
+    
+    2. SINERGIAS DE CLIMA Y VELOCIDAD (SPEED TIERS):
+       - ÍMPETU ARENA (Sand Rush): Bajo Tormenta de Arena (Sandstorm introducida por Tyranitar/Hippowdon), la velocidad del usuario se DUPLICA (x2).
+       - Ejemplo real: Excadrill con Ímpetu Arena bajo Tormenta de Arena de Tyranitar supera en velocidad (outspeedea) a Mega Raichu-Y. Ten esto en cuenta al recomendar estrategias de velocidad.
+       - Nado Rápido (Swift Swim) duplica velocidad bajo Lluvia.
+       - Clorofila (Chlorophyll) duplica velocidad bajo Sol.
+
+    3. REGLAS DE REPLICACIÓN DE LOG:
+       - Usa SOLO nombres de movimientos reales que aparezcan en el log. Prohibido inventar ataques.
+       - Indicar el número de turno exacto de cada KO.
+       - GAME 2: Sugiere combinaciones de leads lógicas y sinergias reales de clima/habilidades sin meter ataques que no afectan por inmunidad de tipo.
     """
     
     user_prompt = f"""
     AUDITORÍA DE COMBATE COMPLETO:
 
-    JUGADORES:
-    - Jugador Principal: '{user_name}' ({resultado})
+    JUGADORES Y RESULTADO:
+    - Jugador Principal: '{user_name}' ({resultado} el combate)
     - Rival: '{opponent_name}'
 
     EQUIPOS:
     - Tus Pokémon: {', '.join(my_team)} (Tus Leads: {', '.join(my_leads)})
     - Pokémon Rival: {', '.join(opp_team)} (Leads Rival: {', '.join(opp_leads)})
 
-    LOG DEL COMBATE:
+    LOG REGISTRADO TURNO A TURNO:
     {clean_actions_text}
 
-    Genera el informe reemplazando los textos entre paréntesis con tu análisis técnico. Devuelve SOLO este HTML, sin código markdown extra:
+    Devuelve la auditoría en este formato HTML exacto sin etiquetas markdown de código (` ```html `):
 
-    <div style="border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;">
-        <b style="color: {color}; font-size: 1.15em;">🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>
+    <div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>
+        <b style='color: {color}; font-size: 1.15em;'>🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>
     </div>
-    <p>📌 <b>1. Team Preview y Mega-Fit:</b><br>(Redacta aquí tu análisis sobre la selección de leads y sinergia...)</p>
-    <p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>(Redacta aquí tu evaluación de la gestión de velocidad...)</p>
-    <p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>(Indica aquí el turno crítico y los KOs clave usando datos reales del log...)</p>
-    <p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>(Redacta aquí tu recomendación específica, lógica y sin errores de tipos para ganar el Game 2...)</p>
+    <p>📌 <b>1. Team Preview y Mega-Fit:</b><br>[Analiza la selección de leads y sinergia considerando inmunidades de tipo...]</p>
+    <p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Evalúa la velocidad considerando modificadores como Ímpetu Arena + Tormenta de Arena, Viento Afín o Espacio Raro...]</p>
+    <p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Señala el turno crítico y KOs reales del log...]</p>
+    <p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Plan riguroso aprovechando inmunidades de tipo (ej. Tierra vs Eléctrico) y sinergias de clima (ej. Tyranitar + Excadrill)...]</p>
     """
 
     headers = {
@@ -196,7 +209,7 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        "temperature": 0.1
+        "temperature": 0.0
     }
     
     try:
