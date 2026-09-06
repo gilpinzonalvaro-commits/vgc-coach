@@ -3,367 +3,409 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VGC World Championship Coach - polilla02</title>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <title>VGC Coach | Road to Worlds</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root { --bg-color: #e5eef5; --card-bg: #ffffff; --box-bg: #f8fafc; --inner-bg: #f1f5f9; --accent-blue: #3466AF; --accent-yellow: #FFCB05; --accent-red: #EE1515; --text-color: #334155; --text-muted: #64748b; --win-color: #22c55e; --loss-color: #ef4444; --border-color: #cbd5e1; --thick-border: #1e293b; }
-        body { font-family: 'Nunito', sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; display: flex; justify-content: center; background-image: radial-gradient(#cbd5e1 2px, transparent 2px); background-size: 24px 24px; }
-        .container { max-width: 700px; width: 100%; }
-        h1 { text-align: center; color: var(--accent-blue); font-size: 1.8em; margin-bottom: 2px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; text-shadow: 2px 2px 0px var(--accent-yellow); }
-        .subtitle { text-align: center; color: var(--text-muted); font-size: 0.95em; margin-bottom: 20px; font-weight: 700; }
-        .tabs { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 8px; }
-        .tab-btn { flex: 1; padding: 12px 8px; background: var(--card-bg); border: 3px solid var(--thick-border); color: var(--text-color); border-radius: 12px; font-weight: 900; font-size: 0.85em; cursor: pointer; white-space: nowrap; text-align: center; box-shadow: 0 4px 0 var(--thick-border); transition: all 0.1s; }
-        .tab-btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--thick-border); }
-        .tab-btn.active { background: var(--accent-red); color: white; border-color: var(--thick-border); }
+        :root {
+            --poke-red: #E3350D;
+            --poke-blue: #31649E;
+            --poke-yellow: #FDCC04;
+            --bg-dark: #12121A;
+            --panel-bg: #1E1E2A;
+            --card-bg: #2A2A3A;
+            --text-main: #F0F0F5;
+            --text-muted: #A0A0B0;
+            --border-glow: rgba(49, 100, 158, 0.5);
+            --mega-gradient: linear-gradient(270deg, #ff6b6b, #4ecdc4, #ffe66d, #c39bd3);
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            background-image: radial-gradient(circle at 10% 20%, rgba(227, 53, 13, 0.05) 0%, transparent 20%), 
+                              radial-gradient(circle at 90% 80%, rgba(49, 100, 158, 0.05) 0%, transparent 20%);
+        }
+
+        h1, h2, h3, .esports-font {
+            font-family: 'Rajdhani', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Cabecera / Status Rotom-Dex */
+        .header-status {
+            background: var(--panel-bg);
+            border-left: 5px solid var(--poke-red);
+            padding: 15px 20px;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-status .status-icon {
+            font-size: 24px;
+            animation: pulse 2s infinite;
+        }
+
+        /* Menú de Navegación */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: var(--panel-bg);
+            color: var(--text-muted);
+            border: 1px solid #333;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            border-color: var(--poke-blue);
+        }
+
+        .tab-btn.active {
+            background: var(--poke-blue);
+            color: white;
+            border-color: var(--poke-blue);
+            box-shadow: 0 0 10px var(--border-glow);
+        }
+
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .card { background: var(--card-bg); border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 3px solid var(--thick-border); box-shadow: 4px 4px 0px rgba(30, 41, 59, 0.1); }
-        .card h3 { color: var(--accent-red); margin-top: 0; font-weight: 900; font-size: 1.2em; border-bottom: 2px dashed var(--border-color); padding-bottom: 8px;}
-        .card h4 { color: var(--accent-blue); font-weight: 900; }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; margin-bottom: 4px; font-size: 0.9em; color: var(--text-color); font-weight: 700;}
-        input, select, textarea { width: 100%; padding: 12px; background: var(--box-bg); border: 2px solid var(--border-color); border-radius: 8px; color: var(--text-color); box-sizing: border-box; font-size: 0.95em; font-family: 'Nunito', sans-serif; font-weight: 700; }
-        input:focus, select:focus { outline: none; border-color: var(--accent-blue); }
-        .btn { background: var(--accent-blue); color: white; font-weight: 900; border: 3px solid var(--thick-border); border-radius: 10px; cursor: pointer; margin-top: 8px; padding: 12px; box-shadow: 0 4px 0 var(--thick-border); text-transform: uppercase; transition: all 0.1s; }
-        .btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--thick-border); }
-        .btn-gold { background: var(--accent-yellow); color: var(--thick-border); }
-        .btn-link { display: inline-block; padding: 8px 12px; background: var(--inner-bg); color: var(--text-color); border: 2px solid var(--thick-border); border-radius: 8px; text-decoration: none; font-size: 0.85em; font-weight: 900; margin-top: 6px; box-shadow: 0 3px 0 var(--thick-border); }
-        .btn-link:active { transform: translateY(3px); box-shadow: 0 0 0 var(--thick-border); }
-        .btn-calc { background: #9333ea; color: white; margin-left: 5px; } 
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .stat-box { text-align: center; padding: 16px; background: var(--box-bg); border-radius: 12px; border: 2px solid var(--border-color); }
-        .stat-value { font-size: 1.6em; font-weight: 900; margin-top: 4px;}
-        .progress-bar-bg { background: var(--border-color); height: 20px; border-radius: 10px; overflow: hidden; margin-top: 8px; border: 2px solid var(--thick-border); }
-        .progress-bar-fill { background: linear-gradient(90deg, var(--accent-blue), var(--accent-yellow)); height: 100%; width: 0%; transition: width 0.3s; }
-        .series-card { background: var(--box-bg); border: 2px solid var(--thick-border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-        .series-card.Victoria { border-left: 8px solid var(--win-color); }
-        .series-card.Derrota { border-left: 8px solid var(--loss-color); }
-        .game-badge { background: var(--inner-bg); padding: 10px; border-radius: 8px; margin-top: 12px; font-size: 0.85em; border: 1px solid var(--border-color); border-left: 4px solid var(--accent-blue); }
-        .coach-advice { background: #fffbeb; border: 3px solid var(--accent-yellow); padding: 16px; border-radius: 12px; font-size: 0.95em; color: #92400e; font-weight: 700;}
-        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 8px; font-size: 0.9em; border: 2px solid var(--border-color); border-radius: 8px; overflow: hidden;}
-        th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border-color); }
-        th { background: var(--box-bg); color: var(--text-color); font-weight: 900; }
-        tr:last-child td { border-bottom: none; }
-        .poke-stat-card { background: var(--card-bg); border: 2px solid var(--accent-blue); padding: 10px; border-radius: 10px; margin-top: 6px; font-size: 0.85em; box-shadow: 2px 2px 0px rgba(52, 102, 175, 0.2);}
-        .ev-tag { background: var(--accent-blue); color: white; padding: 3px 8px; border-radius: 6px; font-size: 0.85em; font-weight: 900; margin-right: 4px; display: inline-block; margin-top: 6px;}
-        .report-box { background: #fee2e2; border: 2px dashed #f87171; border-radius: 6px; padding: 10px; margin-top: 8px; font-size: 0.95em;}
-        .report-box.win { background: #dcfce7; border-color: #4ade80; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s; }
+
+        /* Tarjetas (Paneles) */
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid #333;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .panel-header {
+            color: var(--poke-yellow);
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        /* Formularios */
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            background: var(--card-bg);
+            border: 1px solid #444;
+            color: white;
+            border-radius: 6px;
+            box-sizing: border-box;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            font-family: 'Roboto', sans-serif;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--poke-blue);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        /* Botón MEGAEVOLUCIÓN */
+        .btn-mega {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #111;
+            cursor: pointer;
+            background: var(--mega-gradient);
+            background-size: 400% 400%;
+            animation: MegaGlow 6s ease infinite;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.4);
+            transition: transform 0.2s;
+        }
+
+        .btn-mega:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(78, 205, 196, 0.6);
+        }
+
+        /* Botones estándar */
+        .btn-rojo { background: var(--poke-red); color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-rojo:hover { background: #c22b0a; }
+
+        /* Cajas de Reporte (IA) */
+        .ia-report-box {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+            border-left: 4px solid var(--poke-blue);
+        }
+
+        /* Estadísticas */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-top: 3px solid var(--poke-yellow);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--poke-yellow);
+            font-weight: bold;
+        }
+
+        /* Animaciones */
+        @keyframes MegaGlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🏆 VGC Coach</h1>
-        <div class="subtitle">Entrenador Táctico | Usuario: <b>{{ default_user }}</b></div>
-        
-        <div class="tabs">
-            <button class="tab-btn active" onclick="openTab('tab-matches', this)">🎮 Partidas</button>
-            <button class="tab-btn" onclick="openTab('tab-stats', this)">📊 Stats</button>
-            <button class="tab-btn" onclick="openTab('tab-myteams', this)">🎒 Equipos</button>
-            <button class="tab-btn" onclick="openTab('tab-teamanalysis', this)">📈 Rendimiento</button>
-            <button class="tab-btn" onclick="openTab('tab-rivals', this)">🐉 Rivales</button>
+
+<div class="container">
+    <div class="header-status">
+        <div class="status-icon">🧠</div>
+        <div>
+            <h3 style="margin:0; color: var(--poke-yellow);">SISTEMA IA: CONECTADO</h3>
+            <span style="font-size: 0.9em; color: var(--text-muted);">{{ coach_advice|safe }}</span>
         </div>
+    </div>
 
-        <div id="tab-matches" class="tab-content active">
-            <div class="card">
-                <h3>⚡ Registrar Combate de Showdown</h3>
-                <form action="/parse_replay" method="POST">
-                    <div class="form-group">
-                        <label>Enlace del Replay de Showdown</label>
-                        <input type="url" name="replay_url" required placeholder="https://replay.pokemonshowdown.com/gen9vgc...">
-                    </div>
-                    
-                    <!-- CASILLA NUEVA DE IDENTIDAD -->
-                    <div class="form-group">
-                        <label>Tu Nick en este combate (Opcional si usaste cuenta secundaria)</label>
-                        <input type="text" name="user_name" placeholder="Ej: polilla_vgc">
-                    </div>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('tab-partidas')">🎮 VODs & REPLAYS</button>
+        <button class="tab-btn" onclick="openTab('tab-stats')">📊 METAGAME STATS</button>
+        <button class="tab-btn" onclick="openTab('tab-equipos')">🛡️ TEAM BUILDER</button>
+        <button class="tab-btn" onclick="openTab('tab-cp')">🏆 CIRCUITO MUNDIAL</button>
+    </div>
 
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>Asignar a Serie BO3</label>
-                            <select name="series_id">
-                                <option value="new">➕ Nueva Serie BO3 (Nuevo Rival)</option>
-                                {% for s in series_list %}
-                                    {% if 'BO3' not in s.result %}
-                                        <option value="{{ s.id }}">Vs {{ s.opponent }} (Actualmente {{ s.result }})</option>
-                                    {% endif %}
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Mi Equipo Usado</label>
-                            <select name="team_name">
-                                {% for t in user_teams %}
-                                    <option value="{{ t.name }}">{{ t.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-gold" style="width: 100%;">Procesar Game y Análisis</button>
-                </form>
-            </div>
-
-            <div class="card">
-                <h3>📜 Historial de Combates y Análisis</h3>
-                {% if series_list %}
-                    {% for s in series_list %}
-                        <div class="series-card {{ s.result.split(' ')[0] }}">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <b style="font-size: 1.1em;">VS {{ s.opponent }}</b>
-                                <div>
-                                    <span style="font-weight: 900; margin-right: 10px; color: {% if 'Victoria' in s.result %}var(--win-color){% else %}var(--loss-color){% endif %};">{{ s.result }}</span>
-                                    <form action="/delete_series" method="POST" style="display:inline;">
-                                        <input type="hidden" name="series_id" value="{{ s.id }}">
-                                        <button type="submit" style="background: none; border: none; cursor: pointer; font-size: 1.2em; filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.1));" title="Borrar esta Serie" onclick="return confirm('¿Seguro que quieres borrar este BO3 de tu historial?');">🗑️</button>
-                                    </form>
-                                </div>
-                            </div>
-                            <small style="color: var(--text-muted); font-weight: 700;">Fecha: {{ s.date[:10] }}</small>
-                            
-                            {% if 'Derrota' in s.result %}
-                                <form action="/update_misplay" method="POST" style="margin-top: 10px; background: var(--inner-bg); padding: 10px; border-radius: 8px; border: 1px dashed var(--border-color);">
-                                    <input type="hidden" name="series_id" value="{{ s.id }}">
-                                    <label>Categorizar Factor de Derrota General:</label>
-                                    <div class="grid-2">
-                                        <select name="reason">
-                                            <option value="Error de Predicción (Misplay)" {% if s.misplay == 'Error de Predicción (Misplay)' %}selected{% endif %}>Error de Predicción</option>
-                                            <option value="Matchup Desfavorable (Team Preview)" {% if s.misplay == 'Matchup Desfavorable (Team Preview)' %}selected{% endif %}>Matchup Desfavorable</option>
-                                            <option value="RNG / Golpe Crítico Rival" {% if s.misplay == 'RNG / Golpe Crítico Rival' %}selected{% endif %}>RNG / Golpe Crítico</option>
-                                            <option value="Fallo de Precisión / Miss" {% if s.misplay == 'Fallo de Precisión / Miss' %}selected{% endif %}>Fallo de Precisión</option>
-                                        </select>
-                                        <button type="submit" class="btn" style="margin-top: 0;">Guardar</button>
-                                    </div>
-                                </form>
-                            {% endif %}
-
-                            {% for g in s.games %}
-                                <div class="game-badge">
-                                    <b style="font-size: 1.1em; color: var(--accent-blue);">Game {{ g[0] }} ({{ g[6] }}):</b><br>
-                                    <span style="color: var(--text-color); font-weight: 700;">Tus Pokémon:</span> {{ g[2] }}<br>
-                                    <span style="color: var(--text-color); font-weight: 700;">Rival:</span> {{ g[4] }}<br>
-                                    
-                                    <div style="margin-top: 6px; padding: 6px; background: var(--card-bg); border-radius: 4px; font-size: 0.9em; color: var(--text-muted);">
-                                        {{ g[12] | safe }}
-                                    </div>
-
-                                    {% if g[13] %}
-                                        <div class="report-box {% if g[6] == 'Victoria' %}win{% endif %}">
-                                            {{ g[13] | safe }}
-                                        </div>
-                                    {% endif %}
-                                </div>
+    <!-- PESTAÑA 1: VODs y REPLAYS -->
+    <div id="tab-partidas" class="tab-content active">
+        <div class="panel">
+            <h2 class="panel-header">⚡ ANALIZAR NUEVO MATCHUP (SHOWDOWN VOD)</h2>
+            <form action="/parse_replay" method="POST">
+                <label>URL del Replay (Showdown):</label>
+                <input type="text" name="replay_url" placeholder="https://replay.pokemonshowdown.com/gen9vgc..." required>
+                
+                <label>Tu Nick in-game (si usaste cuenta smurf):</label>
+                <input type="text" name="user_name" placeholder="Ej: {{ default_user }}">
+                
+                <div class="form-grid">
+                    <div>
+                        <label>Asignar a Set BO3:</label>
+                        <select name="series_id">
+                            <option value="new">➕ Nuevo Set (Rival Desconocido)</option>
+                            {% for s in series_list %}
+                                <option value="{{ s.id }}">VS {{ s.opponent }} ({{ s.date }})</option>
                             {% endfor %}
-                        </div>
-                    {% endfor %}
-                {% else %}
-                    <p style="color: var(--text-muted); font-weight: 700;">Sin series registradas.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <div id="tab-stats" class="tab-content">
-            <div class="card grid-2">
-                <div class="stat-box">
-                    <div style="font-weight: 700; color: var(--text-muted);">Winrate BO3</div>
-                    <div class="stat-value" style="color: var(--win-color);">{{ series_winrate }}%</div>
-                </div>
-                <div class="stat-box">
-                    <div style="font-weight: 700; color: var(--text-muted);">Series (V/D)</div>
-                    <div class="stat-value">{{ total_series_wins }} / {{ total_series_count - total_series_wins }}</div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3>Camino al Mundial: <b>{{ total_cp }} / 900 CP</b> ({{ cp_pct }}%)</h3>
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fill" style="width: {{ cp_pct }}%;"></div>
-                </div>
-                <br>
-                <form action="/add_cp" method="POST" class="grid-2">
-                    <input type="text" name="name" placeholder="Torneo (ej. Regional Utrecht)">
-                    <input type="number" name="cp" placeholder="CPs Ganados">
-                    <button type="submit" class="btn" style="grid-column: span 2; width: 100%;">Registrar Puntos</button>
-                </form>
-            </div>
-
-            <div class="card">
-                <h4>🎯 Winrate por Pareja Inicial (Lead)</h4>
-                <table>
-                    <tr><th>Pareja</th><th>P.</th><th>WR</th></tr>
-                    {% for l in lead_stats %}
-                        <tr><td>{{ l.lead }}</td><td>{{ l.total }}</td><td style="color: var(--win-color); font-weight: 900;">{{ l.wr }}%</td></tr>
-                    {% else %}
-                        <tr><td colspan="3">Sin datos registrados</td></tr>
-                    {% endfor %}
-                </table>
-            </div>
-
-            <div class="card">
-                <h4>🔴 Registro de Factores de Derrota</h4>
-                <table>
-                    <tr><th>Causa (Misplay)</th><th>Frecuencia</th></tr>
-                    {% for m in misplay_stats %}
-                        <tr><td>{{ m.reason }}</td><td><b style="color: var(--loss-color);">{{ m.count }}</b> veces</td></tr>
-                    {% else %}
-                        <tr><td colspan="2">Sin derrotas categorizadas</td></tr>
-                    {% endfor %}
-                </table>
-            </div>
-        </div>
-
-        <div id="tab-myteams" class="tab-content">
-            <div class="card">
-                <h3>➕ Registrar Nuevo Equipo</h3>
-                <form action="/add_team" method="POST">
-                    <div class="form-group">
-                        <label>Nombre del Equipo</label>
-                        <input type="text" name="team_name" required placeholder="Ej. Sun Balance Gen 9">
-                    </div>
-                    <div class="form-group">
-                        <label>Enlace de PokéPaste (Obligatorio)</label>
-                        <input type="url" name="pokepaste_url" required placeholder="https://pokepast.es/...">
-                    </div>
-                    <div class="form-group">
-                        <label>Notas Adicionales (Opcional)</label>
-                        <input type="text" name="notes" placeholder="Estrategias, notas de uso...">
-                    </div>
-                    <button type="submit" class="btn btn-gold" style="width: 100%;">Guardar e Importar Automáticamente</button>
-                </form>
-            </div>
-
-            <div class="card">
-                <h3>🎒 Mis Equipos (PC Box)</h3>
-                {% for t in user_teams %}
-                    <div style="background: var(--box-bg); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 3px solid var(--thick-border); border-left: 8px solid var(--accent-red);">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <b style="font-size: 1.2em; color: var(--accent-blue); text-transform: uppercase;">{{ t.name }}</b>
-                            
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <a href="https://nerd-of-now.github.io/NCP-VGC-Damage-Calculator/" target="_blank" class="btn-link btn-calc" style="margin: 0;">⚔️ Calculadora NCP</a>
-                                <form action="/delete_team" method="POST" style="margin: 0;">
-                                    <input type="hidden" name="team_id" value="{{ t.id }}">
-                                    <button type="submit" style="background: none; border: none; cursor: pointer; font-size: 1.3em; filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.1));" title="Borrar este Equipo" onclick="return confirm('¿Seguro que quieres borrar este equipo de tu PC? Las partidas jugadas con él se mantendrán.');">🗑️</button>
-                                </form>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top: 12px; margin-bottom: 12px;">
-                            {% if t.paste %}
-                                <a href="{{ t.paste }}" target="_blank" class="btn-link">🔗 Abrir PokéPaste</a>
-                            {% endif %}
-                            <button class="btn-link" onclick="copiarPaste(`{{ t.raw_paste }}`)">📋 Copiar Equipo (Importar)</button>
-                        </div>
-                        
-                        {% if t.parsed_mons %}
-                            <div style="margin-top: 16px; border-top: 2px dashed var(--border-color); padding-top: 12px;">
-                                <h4 style="margin: 0 0 10px 0; color: var(--text-color);">📊 Auditoría de Stats</h4>
-                                <div class="grid-2">
-                                {% for m in t.parsed_mons %}
-                                    <div class="poke-stat-card">
-                                        <b style="color: var(--thick-border); font-size: 1.1em;">{{ m.name }}</b> <br>
-                                        <span style="color: var(--accent-red); font-weight: 800;">@ {{ m.item }}</span><br>
-                                        <small style="color: var(--text-muted); font-weight: 700;">Nat: {{ m.nature }} | Hab: {{ m.ability }}</small><br>
-                                        {% for ev in m.evs.split(' / ') %}
-                                            <span class="ev-tag">{{ ev }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% endfor %}
-                                </div>
-                            </div>
-                        {% endif %}
-                    </div>
-                {% else %}
-                    <p style="color: var(--text-muted); font-weight: 700;">Sin equipos registrados.</p>
-                {% endfor %}
-            </div>
-        </div>
-
-        <div id="tab-teamanalysis" class="tab-content">
-            <div class="card">
-                <h3>📈 Rendimiento por Equipo</h3>
-                <table>
-                    <tr><th>Equipo</th><th>Games</th><th>Winrate</th></tr>
-                    {% for tp in team_performance %}
-                        <tr><td><b style="color: var(--accent-blue);">{{ tp.name }}</b></td><td>{{ tp.total }}</td><td style="color: var(--win-color); font-weight: 900;">{{ tp.wr }}%</td></tr>
-                    {% else %}
-                        <tr><td colspan="3">Sin combates registrados con equipos.</td></tr>
-                    {% endfor %}
-                </table>
-            </div>
-
-            <div class="card">
-                <h3>⚡ Calculadora de Velocidad</h3>
-                <div class="grid-2">
-                    <div>
-                        <label>Velocidad Base:</label>
-                        <input type="number" id="baseSpeed" value="136">
+                        </select>
                     </div>
                     <div>
-                        <label>Modificador (Estado):</label>
-                        <select id="speedMod" onchange="calculateSpeed()">
-                            <option value="1">Normal (x1.0)</option>
-                            <option value="2">Tailwind / Viento Afín (x2.0)</option>
-                            <option value="1.5">Pañuelo Elección (x1.5)</option>
-                            <option value="0.67">-1 Velocidad (x0.67)</option>
-                            <option value="-1">Espacio Raro (Invertido)</option>
+                        <label>Core / Equipo Piloteado:</label>
+                        <select name="team_name">
+                            <option value="Equipo Principal">Equipo Principal</option>
+                            {% for t in user_teams %}
+                                <option value="{{ t.name }}">{{ t.name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </div>
-                <div style="text-align: center; margin-top: 16px; padding: 16px; background: var(--inner-bg); border-radius: 12px; border: 2px dashed var(--border-color);">
-                    <b style="font-size: 1.1em; color: var(--text-muted);">Velocidad Real en Combate:</b><br>
-                    <span id="realSpeed" style="color: var(--accent-blue); font-size: 2em; font-weight: 900;">136</span>
+                
+                <button type="submit" class="btn-mega">✨ MEGAEVOLUCIONAR AUDITORÍA TÁCTICA ✨</button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2 class="panel-header">📜 ARCHIVO DE MATCHUPS Y AUDITORÍAS</h2>
+            {% for s in series_list %}
+            <div class="ia-report-box" style="margin-bottom: 30px; border-left: 4px solid var(--poke-red);">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px;">
+                    <h3 style="margin: 0;">⚔️ SET VS {{ s.opponent }}</h3>
+                    <span style="background: #222; padding: 5px 10px; border-radius: 4px; color: var(--poke-yellow); font-weight: bold;">{{ s.result }}</span>
+                </div>
+                
+                {% for game in s.games %}
+                <div style="background: var(--panel-bg); padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #333;">
+                    <b style="color: var(--poke-blue);">Game {{ game[2] }} ({{ game[6] }}) | Core usado: {{ game[1] }}</b><br>
+                    <span style="font-size: 0.9em; color: var(--text-muted);">
+                        <b>Tus Leads:</b> {{ game[2] }} | <b>Leads Rival:</b> {{ game[4] }} <br>
+                        <b>Tu Mega:</b> {{ game[7] }} | <b>Mega Rival:</b> {{ game[8] }} <br>
+                        <b>Arquetipo Detectado:</b> {{ game[9] }} | <b>Primer KO:</b> {{ game[10] }}
+                    </span>
+                    
+                    <div class="ia-report-box">
+                        {{ game[13]|safe }}
+                    </div>
+                </div>
+                {% endfor %}
+
+                <form action="/delete_series" method="POST" style="margin-top: 15px; text-align: right;">
+                    <input type="hidden" name="series_id" value="{{ s.id }}">
+                    <button type="submit" class="btn-rojo">🗑️ Eliminar VOD del Servidor</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- PESTAÑA 2: METAGAME STATS -->
+    <div id="tab-stats" class="tab-content">
+        <div class="panel">
+            <h2 class="panel-header">📈 RENDIMIENTO EN EL METAGAME</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div style="color: var(--text-muted); text-transform: uppercase; font-size: 0.8em;">Winrate General de Sets (BO3)</div>
+                    <div class="stat-value">{{ series_winrate }}%</div>
+                    <div style="color: #777;">({{ total_series_wins }} W / {{ total_series_count }} Totales)</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div style="color: var(--text-muted); text-transform: uppercase; font-size: 0.8em;">Core con mejor Winrate</div>
+                    {% if team_performance %}
+                    <div class="stat-value" style="font-size: 1.5em; margin-top:10px; color: var(--poke-blue);">{{ team_performance[0].name }}</div>
+                    <div style="color: #4ecdc4; font-weight:bold;">{{ team_performance[0].wr }}% WR</div>
+                    {% else %}
+                    <div class="stat-value" style="font-size: 1.2em; margin-top:10px;">Sin datos</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
-        <div id="tab-rivals" class="tab-content">
-            <div class="card">
-                <h3>🛡️ Rendimiento por Arquetipo Rival</h3>
-                <table>
-                    <tr><th>Arquetipo Enemigo</th><th>Partidas</th><th>Winrate</th></tr>
-                    {% for a in archetype_stats %}
-                        <tr><td><b style="color: var(--text-color);">{{ a.arch }}</b></td><td>{{ a.total }}</td><td style="color: var(--win-color); font-weight: 900;">{{ a.wr }}%</td></tr>
-                    {% else %}
-                        <tr><td colspan="3">Sin datos registrados</td></tr>
-                    {% endfor %}
-                </table>
-            </div>
+        <div class="panel">
+            <h2 class="panel-header">🧩 TIER LIST DE MEGAS RIVALES</h2>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr style="background: #333; color: var(--poke-yellow);">
+                    <th style="padding: 10px; text-align: left;">Mega Piedra Enfrentada</th>
+                    <th style="padding: 10px; text-align: center;">Juegos</th>
+                    <th style="padding: 10px; text-align: center;">Tu Winrate</th>
+                </tr>
+                {% for m in mega_stats %}
+                <tr style="border-bottom: 1px solid #444;">
+                    <td style="padding: 10px;">{{ m.mega }}</td>
+                    <td style="padding: 10px; text-align: center;">{{ m.total }}</td>
+                    <td style="padding: 10px; text-align: center; font-weight: bold; color: {% if m.wr >= 50 %}#4ecdc4{% else %}var(--poke-red){% endif %};">{{ m.wr }}%</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
 
-            <div class="card">
-                <h3>🐉 Rendimiento frente a Megas Rivales</h3>
-                <table>
-                    <tr><th>Mega Evolución Rival</th><th>Combates</th><th>Winrate</th></tr>
-                    {% for m in mega_stats %}
-                        <tr><td><b style="color: var(--accent-red);">{{ m.mega }}</b></td><td>{{ m.total }}</td><td style="color: var(--win-color); font-weight: 900;">{{ m.wr }}%</td></tr>
-                    {% else %}
-                        <tr><td colspan="3">Sin combates contra Megas registrados</td></tr>
-                    {% endfor %}
-                </table>
+    <!-- PESTAÑA 3: TEAM BUILDER -->
+    <div id="tab-equipos" class="tab-content">
+        <div class="panel">
+            <h2 class="panel-header">🛠️ BARRACONES (REGISTRAR CORE)</h2>
+            <form action="/add_team" method="POST">
+                <div class="form-grid">
+                    <div>
+                        <label>Nombre del Core / Estrategia:</label>
+                        <input type="text" name="team_name" placeholder="Ej: Lluvia Ofensiva + Mega-Swampert" required>
+                    </div>
+                    <div>
+                        <label>URL del PokéPaste (Pokepast.es):</label>
+                        <input type="text" name="pokepaste_url" placeholder="https://pokepast.es/...">
+                    </div>
+                </div>
+                <label>Notas de Win Condition (Opcional):</label>
+                <textarea name="notes" rows="3" placeholder="Ej: Win condition principal es limpiar con Mega-Swampert bajo lluvia. Cuidado con Rillaboom."></textarea>
+                <button type="submit" class="btn-mega" style="background: var(--poke-blue); box-shadow: none; animation: none; color: white;">💾 GUARDAR CORE EN BASE DE DATOS</button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2 class="panel-header">🛡️ TUS CORES REGISTRADOS</h2>
+            <div class="stats-grid">
+                {% for t in user_teams %}
+                <div class="ia-report-box" style="border-left-color: var(--poke-yellow);">
+                    <h3 style="margin-top: 0;">{{ t.name }}</h3>
+                    <p style="font-size: 0.9em; color: var(--text-muted);">{{ t.pokemon }}</p>
+                    {% if t.paste %}<a href="{{ t.paste }}" target="_blank" style="color: #4ecdc4; text-decoration: none;">🔗 Ver PokéPaste</a>{% endif %}
+                    
+                    <form action="/delete_team" method="POST" style="margin-top: 15px;">
+                        <input type="hidden" name="team_id" value="{{ t.id }}">
+                        <button type="submit" class="btn-rojo" style="padding: 5px 10px; font-size: 0.8em;">🗑️ Borrar Core</button>
+                    </form>
+                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
 
-    <script>
-        function openTab(tabId, btnElement) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            if (btnElement) btnElement.classList.add('active');
-        }
+    <!-- PESTAÑA 4: CIRCUITO MUNDIAL -->
+    <div id="tab-cp" class="tab-content">
+        <div class="panel">
+            <h2 class="panel-header">🏆 TRACKER DE CHAMPIONSHIP POINTS (CP)</h2>
+            <div style="background: #333; height: 30px; border-radius: 15px; margin-bottom: 10px; overflow: hidden; border: 2px solid #555;">
+                <div style="background: var(--mega-gradient); background-size: 400% 400%; animation: MegaGlow 6s ease infinite; height: 100%; width: {{ cp_pct }}%; transition: width 1s;"></div>
+            </div>
+            <div style="text-align: center; font-size: 1.2em; font-family: 'Rajdhani', sans-serif;">
+                Progreso para el Mundial: <b style="color: var(--poke-yellow);">{{ total_cp }} / 900 CP</b>
+            </div>
 
-        function calculateSpeed() {
-            const base = parseFloat(document.getElementById('baseSpeed').value) || 0;
-            const mod = parseFloat(document.getElementById('speedMod').value);
-            let real = (mod === -1) ? base : Math.floor(base * mod);
-            document.getElementById('realSpeed').innerText = real;
-        }
+            <form action="/add_cp" method="POST" style="margin-top: 30px; max-width: 500px; margin-left: auto; margin-right: auto;">
+                <h3 style="text-align: center;">Añadir Puntos de Torneo</h3>
+                <input type="text" name="name" placeholder="Ej: Regional de Gdansk" required>
+                <input type="number" name="cp" placeholder="Puntos Obtenidos (Ej: 100)" required>
+                <button type="submit" class="btn-mega" style="background: var(--poke-red); box-shadow: none; animation: none; color: white;">➕ REGISTRAR CPs</button>
+            </form>
+        </div>
+    </div>
+</div>
 
-        function copiarPaste(texto) {
-            if (!texto) { alert("No hay datos de paste guardados."); return; }
-            navigator.clipboard.writeText(texto).then(() => {
-                alert("¡Equipo copiado al portapapeles! 🎒\n\nYa puedes pegarlo (Ctrl+V) en Import/Export de la Calculadora de Daño.");
-            });
-        }
-    </script>
+<script>
+    function openTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+</script>
+
 </body>
 </html>
