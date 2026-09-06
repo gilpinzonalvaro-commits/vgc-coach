@@ -140,6 +140,7 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
+# --- MOTOR DE IA UNIVERSAL APLICABLE A CUALQUIER EQUIPO Y ARQUETIPO ---
 def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype):
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key: return None
@@ -156,18 +157,16 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
     system_prompt = (
         "ERES: Coach Táctico de Élite de Pokémon VGC. Tu análisis debe ser 100% REGIDO POR LAS REGLAS OFICIALES Y FIEL AL LOG.\n"
         "FORMATO METAGAME: VGC Gen 9 con Megaevoluciones.\n\n"
-        "MATRIZ DE TABLA DE TIPOS Y COBERTURAS VGC:\n"
-        "1. INMUNIDADES Y DEBILIDADES LETALES:\n"
-        "- Tipo TIERRA es INMUNE a ELÉCTRICO (Excadrill NO recibe daño de ataques eléctricos de Raichu).\n"
-        "- TYRANITAR (Roca/Siniestro) tiene debilidad x4 al tipo LUCHA. Atacantes especiales como Raichu suelen llevar 'Focus Blast' (Onda Certera). NUNCA sugieras a Tyranitar como muro defensivo directo frente a estos atacantes.\n"
-        "- HADA es inmune a Dragón, ACERO inmune a Veneno, NORMAL/LUCHA inmune a Fantasma.\n\n"
-        "2. SINERGIAS DE CLIMA Y VELOCIDAD:\n"
-        "- ÍMPETU ARENA (Sand Rush): Bajo Tormenta de Arena (Tyranitar), la velocidad del usuario se DUPLICA (x2). Excadrill bajo arena supera en velocidad a Mega Raichu-Y.\n"
-        "- El protagonista ofensivo en arena es Excadrill; Tyranitar activa el clima.\n\n"
-        "3. REGLAS DE ANÁLISIS DEL LOG:\n"
-        "- Usa SOLO nombres de movimientos reales presentes en el log.\n"
-        "- Indica el turno exacto de los KOs.\n"
-        "- GAME 2: Propón leads seguros sin exponer Pokémon a debilidades x4."
+        "REGLAS TÁCTICAS DINÁMICAS Y RIGUROSAS:\n"
+        "1. TABLA DE TIPOS E INMUNIDADES (OBLIGATORIO): Consulta SIEMPRE la tabla de tipos oficial para los Pokémon involucrados en el combate.\n"
+        "   - Respeta estrictamente las inmunidades (Tierra/Eléctrico, Volador/Tierra, Hada/Dragón, Acero/Veneno, Fantasma/Normal-Lucha, Siniestro/Psíquico).\n"
+        "   - Evita sugerir movimientos que no afecten por inmunidad o recomendar muros defensivos expuestos a debilidades x4 del rival.\n\n"
+        "2. CONTROL DE VELOCIDAD DINÁMICO:\n"
+        "   - Evalúa las habilidades de clima/velocidad activas en la partida (Ímpetu Arena, Nado Rápido, Clorofila, Viento Afín, Espacio Raro).\n"
+        "   - Aplica los multiplicadores de velocidad reales (2x en clima/Viento Afín) para determinar qué Pokémon actúa primero.\n\n"
+        "3. PROHIBIDO ALUCINAR:\n"
+        "   - Usa ÚNICAMENTE nombres de ataques y eventos que aparezcan literalmente en el log.\n"
+        "   - Basa la recomendación del Game 2 en las 6 opciones del equipo del jugador frente a las 6 del rival, priorizando matchups favorables y control del ritmo."
     )
     
     user_prompt = (
@@ -176,11 +175,12 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
         f"- Jugador Principal: '{user_name}' ({resultado} el combate)\n"
         f"- Rival: '{opponent_name}'\n\n"
         f"EQUIPOS:\n"
-        f"- Tus Pokémon: {my_team_str} (Tus Leads: {my_leads_str})\n"
-        f"- Pokémon Rival: {opp_team_str} (Leads Rival: {opp_leads_str})\n\n"
+        f"- Equipo del Jugador: {my_team_str} (Leads Usados: {my_leads_str})\n"
+        f"- Equipo del Rival: {opp_team_str} (Leads Usados: {opp_leads_str})\n"
+        f"- Arquetipo Detectado: {archetype}\n\n"
         f"LOG REGISTRADO TURNO A TURNO:\n"
         f"{clean_actions_text}\n\n"
         f"Devuelve la auditoría en este formato HTML exacto (sin etiquetas markdown 
 http://googleusercontent.com/immersive_entry_chip/0
 
-Realiza el **Commit**, espera que el despliegue esté en verde (**Live**) y genera un nuevo análisis del VOD para ver los resultados actualizados.
+Copia todo el bloque, pégalo en GitHub y haz el despliegue. Ahora el motor de análisis evaluará las inmunidades y coberturas de forma totalmente adaptativa para **cualquier equipo**.
