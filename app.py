@@ -140,7 +140,7 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
-# --- MOTOR DE IA CON REGLAS Y TABLA DE TIPOS INTEGRADA ---
+# --- MOTOR DE IA CON PREVENCIÓN DE COBERTURAS LETALES ---
 def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype):
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key: return None
@@ -150,27 +150,23 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
     resultado = "GANÓ" if user_won else "PERDIÓ"
     
     system_prompt = f"""
-    ERES: Coach Táctico de Élite de Pokémon VGC (Nivel Campeonato Mundial). Tu análisis debe ser 100% REGIDO POR LAS REGLAS OFICIALES Y FIEL AL LOG.
-    FORMATO METAGAME: VGC Gen 9 con Megaevoluciones (incluyendo formas Mega personalizadas/National Dex).
+    ERES: Coach Táctico de Élite de Pokémon VGC. Tu análisis debe ser 100% REGIDO POR LAS REGLAS OFICIALES Y FIEL AL LOG.
+    FORMATO METAGAME: VGC Gen 9 con Megaevoluciones (incluyendo formas Mega personalizadas).
 
-    MATRIZ INMóVIL DE TABLA DE TIPOS Y REGLAS VGC (ESTRICTO CUMPLIMIENTO):
-    1. INMUNIDADES ABSOLUTAS (Daño x0):
-       - Tipo TIERRA es 100% INMUNE a ataques ELÉCTRICOS (Ejemplo: Excadrill es Tierra/Acero, NUNCA recibe daño de ataques eléctricos de Raichu o Mega Raichu).
-       - Tipo VOLADOR es 100% INMUNE a ataques de TIERRA.
-       - Tipo HADA es 100% INMUNE a ataques Dragón.
-       - Tipo ACERO es 100% INMUNE a ataques de Veneno.
-       - Tipo FANTASMA es 100% INMUNE a Normal y Lucha.
+    MATRIZ INMÓVIL DE TABLA DE TIPOS Y COBERTURAS VGC:
+    1. INMUNIDADES Y DEBILIDADES LETALES (ESTRICTO):
+       - Tipo TIERRA es INMUNE a ELÉCTRICO (Excadrill NO recibe daño de ataques eléctricos de Raichu).
+       - TYRANITAR (Roca/Siniestro) tiene debilidad x4 al tipo LUCHA. Atacantes especiales veloces como Mega Raichu suelen llevar 'Focus Blast' (Onda Certera) como cobertura. NUNCA sugieras a Tyranitar como muro defensivo directo frente a estos atacantes especiales. El rol de Tyranitar es entrar solo a poner el clima o usarse con extrema protección.
+       - HADA es inmune a Dragón, ACERO inmune a Veneno, NORMAL/LUCHA inmune a Fantasma.
     
     2. SINERGIAS DE CLIMA Y VELOCIDAD (SPEED TIERS):
-       - ÍMPETU ARENA (Sand Rush): Bajo Tormenta de Arena (Sandstorm introducida por Tyranitar/Hippowdon), la velocidad del usuario se DUPLICA (x2).
-       - Ejemplo real: Excadrill con Ímpetu Arena bajo Tormenta de Arena de Tyranitar supera en velocidad (outspeedea) a Mega Raichu-Y. Ten esto en cuenta al recomendar estrategias de velocidad.
-       - Nado Rápido (Swift Swim) duplica velocidad bajo Lluvia.
-       - Clorofila (Chlorophyll) duplica velocidad bajo Sol.
+       - ÍMPETU ARENA (Sand Rush): Bajo Tormenta de Arena, la velocidad del usuario se DUPLICA (x2). Excadrill bajo arena supera holgadamente a Mega Raichu-Y y a casi cualquier amenaza rápida.
+       - El protagonista ofensivo en arena es Excadrill; Tyranitar es un "Enabler" (habilitador).
 
-    3. REGLAS DE REPLICACIÓN DE LOG:
+    3. REGLAS DE ANÁLISIS DEL LOG:
        - Usa SOLO nombres de movimientos reales que aparezcan en el log. Prohibido inventar ataques.
-       - Indicar el número de turno exacto de cada KO.
-       - GAME 2: Sugiere combinaciones de leads lógicas y sinergias reales de clima/habilidades sin meter ataques que no afectan por inmunidad de tipo.
+       - Indica el turno exacto de los KOs.
+       - GAME 2: Propón leads seguros. Considera siempre la velocidad bajo clima y evita exponer Pokémon a sus debilidades x4 (ej. Tyranitar vs Focus Blast).
     """
     
     user_prompt = f"""
@@ -192,10 +188,10 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
     <div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>
         <b style='color: {color}; font-size: 1.15em;'>🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>
     </div>
-    <p>📌 <b>1. Team Preview y Mega-Fit:</b><br>[Analiza la selección de leads y sinergia considerando inmunidades de tipo...]</p>
-    <p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Evalúa la velocidad considerando modificadores como Ímpetu Arena + Tormenta de Arena, Viento Afín o Espacio Raro...]</p>
+    <p>📌 <b>1. Team Preview y Mega-Fit:</b><br>[Analiza la selección de leads y sinergia considerando inmunidades...]</p>
+    <p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Evalúa la velocidad considerando modificadores como Ímpetu Arena bajo Tormenta de Arena...]</p>
     <p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Señala el turno crítico y KOs reales del log...]</p>
-    <p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Plan riguroso aprovechando inmunidades de tipo (ej. Tierra vs Eléctrico) y sinergias de clima (ej. Tyranitar + Excadrill)...]</p>
+    <p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Plan riguroso aprovechando la inmunidad de Excadrill al eléctrico y su doble velocidad en arena, ADVIRTIENDO de la necesidad de proteger a Tyranitar de posibles coberturas de Lucha (Focus Blast)...]</p>
     """
 
     headers = {
@@ -539,32 +535,4 @@ def delete_series():
     conn.close()
     return redirect(url_for('index'))
 
-@app.route('/delete_team', methods=['GET', 'POST'])
-def delete_team():
-    if request.method == 'GET': return redirect(url_for('index'))
-    team_id = request.form.get('team_id')
-    if team_id:
-        conn, db_type = get_db()
-        cursor = conn.cursor()
-        placeholder = "%s" if db_type == "postgres" else "?"
-        cursor.execute(f"DELETE FROM user_teams WHERE id = {placeholder}", (team_id,))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/add_cp', methods=['GET', 'POST'])
-def add_cp():
-    if request.method == 'GET': return redirect(url_for('index'))
-    name = request.form.get('name') or 'Torneo VGC'
-    cp = int(request.form.get('cp') or 0)
-    if cp > 0:
-        conn, db_type = get_db()
-        cursor = conn.cursor()
-        placeholder = "%s" if db_type == "postgres" else "?"
-        cursor.execute(f"INSERT INTO tournaments (name, cp) VALUES ({placeholder}, {placeholder})", (name, cp))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+@app.route('/delete
