@@ -19,7 +19,6 @@ def init_db():
         conn = get_db()
         cursor = conn.cursor()
         
-        # Tabla de Equipos
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_teams (
             id SERIAL PRIMARY KEY,
@@ -32,7 +31,6 @@ def init_db():
         )
         ''')
 
-        # Tabla de Series BO3
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS series_matches (
             id SERIAL PRIMARY KEY,
@@ -44,7 +42,6 @@ def init_db():
         )
         ''')
 
-        # Tabla de Partidas Individuales
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS games (
             id SERIAL PRIMARY KEY,
@@ -68,7 +65,6 @@ def init_db():
         )
         ''')
 
-        # Tabla de CPs
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS tournaments (
             id SERIAL PRIMARY KEY,
@@ -83,7 +79,6 @@ def init_db():
     except Exception as e:
         print(f"Error inicializando base de datos en la nube: {e}")
 
-# Inicializar DB al arrancar la app
 if os.environ.get("DATABASE_URL"):
     init_db()
 
@@ -406,8 +401,11 @@ def index():
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
 
-@app.route('/add_team', methods=['POST'])
+# --- RUTAS DE ACCIÓN BLINDADAS (ACEPTAN GET Y POST) ---
+@app.route('/add_team', methods=['GET', 'POST'])
 def add_team():
+    if request.method == 'GET':
+        return redirect(url_for('index'))
     team_name = request.form.get('team_name')
     pokepaste_url = request.form.get('pokepaste_url', '')
     notes = request.form.get('notes', '')
@@ -431,8 +429,10 @@ def add_team():
         conn.close()
     return redirect(url_for('index'))
 
-@app.route('/parse_replay', methods=['POST'])
+@app.route('/parse_replay', methods=['GET', 'POST'])
 def parse_replay_route():
+    if request.method == 'GET':
+        return redirect(url_for('index'))
     url = request.form.get('replay_url')
     user_name = request.form.get('user_name') or DEFAULT_USER
     series_id = request.form.get('series_id')
@@ -459,8 +459,10 @@ def parse_replay_route():
         conn.close()
     return redirect(url_for('index'))
 
-@app.route('/update_misplay', methods=['POST'])
+@app.route('/update_misplay', methods=['GET', 'POST'])
 def update_misplay():
+    if request.method == 'GET':
+        return redirect(url_for('index'))
     series_id = request.form.get('series_id')
     reason = request.form.get('reason')
     notes = request.form.get('notes', '')
@@ -471,8 +473,10 @@ def update_misplay():
     conn.close()
     return redirect(url_for('index'))
 
-@app.route('/delete_series', methods=['POST'])
+@app.route('/delete_series', methods=['GET', 'POST'])
 def delete_series():
+    if request.method == 'GET':
+        return redirect(url_for('index'))
     series_id = request.form.get('series_id')
     conn = get_db()
     cursor = conn.cursor()
@@ -482,8 +486,10 @@ def delete_series():
     conn.close()
     return redirect(url_for('index'))
 
-@app.route('/delete_team', methods=['POST'])
+@app.route('/delete_team', methods=['GET', 'POST'])
 def delete_team():
+    if request.method == 'GET':
+        return redirect(url_for('index'))
     team_id = request.form.get('team_id')
     if team_id:
         conn = get_db()
@@ -493,8 +499,10 @@ def delete_team():
         conn.close()
     return redirect(url_for('index'))
 
-@app.route('/add_cp', methods=['POST'])
+@app.route('/add_cp', methods=['GET', 'POST'])
 def add_cp():
+    if request.method == 'GET':
+        return redirect(url_for('index'))
     name = request.form.get('name') or 'Torneo VGC'
     cp = int(request.form.get('cp') or 0)
     if cp > 0:
