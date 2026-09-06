@@ -42,20 +42,14 @@
             padding: 20px;
         }
 
-        /* Cabecera / Status Rotom-Dex */
+        /* Cabecera Rotom-Dex */
         .header-status {
             background: var(--panel-bg);
             border-left: 5px solid var(--poke-red);
             padding: 15px 20px;
             border-radius: 0 8px 8px 0;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            margin-bottom: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header-left {
+            margin-bottom: 25px;
             display: flex;
             align-items: center;
             gap: 15px;
@@ -64,31 +58,6 @@
         .header-status .status-icon {
             font-size: 24px;
             animation: pulse 2s infinite;
-        }
-
-        /* Botón de Calculadora Fijo */
-        .btn-calc {
-            background: var(--card-bg);
-            color: var(--poke-cyan);
-            border: 1px solid var(--poke-cyan);
-            padding: 10px 20px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-family: 'Rajdhani', sans-serif;
-            font-weight: bold;
-            font-size: 1.1em;
-            transition: all 0.2s;
-            box-shadow: 0 0 10px rgba(78, 205, 196, 0.2);
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-calc:hover {
-            background: var(--poke-cyan);
-            color: #111;
-            box-shadow: 0 0 20px rgba(78, 205, 196, 0.6);
-            transform: translateY(-2px);
         }
 
         /* Menú de Navegación */
@@ -128,7 +97,7 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.4s; }
 
-        /* Tarjetas (Paneles) */
+        /* Paneles */
         .panel {
             background: var(--panel-bg);
             border-radius: 12px;
@@ -160,7 +129,7 @@
             font-family: 'Roboto', sans-serif;
         }
         
-        input:focus, select:focus {
+        input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: var(--poke-blue);
         }
@@ -171,7 +140,7 @@
             gap: 15px;
         }
 
-        /* Botón MEGAEVOLUCIÓN */
+        /* Botón Megaevolución */
         .btn-mega {
             width: 100%;
             padding: 15px;
@@ -195,11 +164,36 @@
             box-shadow: 0 0 25px rgba(78, 205, 196, 0.6);
         }
 
+        /* Botón Calculadora de Daño Inferior */
+        .btn-calc-bottom {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            text-align: center;
+            background: var(--card-bg);
+            color: var(--poke-cyan);
+            border: 2px solid var(--poke-cyan);
+            border-radius: 8px;
+            text-decoration: none;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: bold;
+            font-size: 1.2em;
+            box-sizing: border-box;
+            transition: all 0.2s;
+            margin-top: 20px;
+        }
+
+        .btn-calc-bottom:hover {
+            background: var(--poke-cyan);
+            color: #111;
+            box-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+        }
+
         /* Botones estándar */
         .btn-rojo { background: var(--poke-red); color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-rojo:hover { background: #c22b0a; }
 
-        /* Cajas de Reporte (IA) */
+        /* Reporte IA */
         .ia-report-box {
             background: var(--card-bg);
             border-radius: 8px;
@@ -208,7 +202,7 @@
             border-left: 4px solid var(--poke-blue);
         }
 
-        /* Estadísticas */
+        /* Stats Grid */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -230,7 +224,14 @@
             font-weight: bold;
         }
 
-        /* Animaciones */
+        /* Targeta Pokémon Individual */
+        .pkmn-card {
+            background: var(--panel-bg);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #444;
+        }
+
         @keyframes MegaGlow {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
@@ -244,17 +245,11 @@
 
 <div class="container">
     <div class="header-status">
-        <div class="header-left">
-            <div class="status-icon">🧠</div>
-            <div>
-                <h3 style="margin:0; color: var(--poke-yellow);">SISTEMA IA: CONECTADO</h3>
-                <span style="font-size: 0.9em; color: var(--text-muted);">{{ coach_advice|safe }}</span>
-            </div>
+        <div class="status-icon">🧠</div>
+        <div>
+            <h3 style="margin:0; color: var(--poke-yellow);">SISTEMA IA: CONECTADO</h3>
+            <span style="font-size: 0.9em; color: var(--text-muted);">{{ coach_advice|safe }}</span>
         </div>
-        <!-- BOTÓN CALCULADORA AQUÍ -->
-        <a href="https://calc.pokemonshowdown.com/" target="_blank" class="btn-calc">
-            🧮 CALCULADORA DE DAÑO
-        </a>
     </div>
 
     <div class="tabs">
@@ -298,6 +293,11 @@
                 
                 <button type="submit" class="btn-mega">✨ MEGAEVOLUCIONAR AUDITORÍA TÁCTICA ✨</button>
             </form>
+
+            <!-- ACCESO A CALCULADORA ABAJO -->
+            <a href="https://calc.pokemonshowdown.com/" target="_blank" class="btn-calc-bottom">
+                🧮 ABRIR CALCULADORA DE DAÑO OFICIAL (SHOWDOWN)
+            </a>
         </div>
 
         <div class="panel">
@@ -398,17 +398,48 @@
 
         <div class="panel">
             <h2 class="panel-header">🛡️ TUS CORES REGISTRADOS</h2>
-            <div class="stats-grid">
+            <div style="display: flex; flex-direction: column; gap: 20px;">
                 {% for t in user_teams %}
-                <div class="ia-report-box" style="border-left-color: var(--poke-yellow);">
-                    <h3 style="margin-top: 0;">{{ t.name }}</h3>
-                    <p style="font-size: 0.9em; color: var(--text-muted);">{{ t.pokemon }}</p>
-                    {% if t.paste %}<a href="{{ t.paste }}" target="_blank" style="color: #4ecdc4; text-decoration: none;">🔗 Ver PokéPaste</a>{% endif %}
-                    
-                    <form action="/delete_team" method="POST" style="margin-top: 15px;">
-                        <input type="hidden" name="team_id" value="{{ t.id }}">
-                        <button type="submit" class="btn-rojo" style="padding: 5px 10px; font-size: 0.8em;">🗑️ Borrar Core</button>
-                    </form>
+                <div class="ia-report-box" style="border-left: 5px solid var(--poke-yellow); background: var(--card-bg); margin: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 12px;">
+                        <div>
+                            <h3 style="margin: 0; color: var(--poke-yellow); font-size: 1.4em;">{{ t.name }}</h3>
+                            {% if t.paste %}
+                                <a href="{{ t.paste }}" target="_blank" style="color: var(--poke-cyan); text-decoration: none; font-size: 0.9em;">🔗 Ver PokéPaste ({{ t.paste }})</a>
+                            {% endif %}
+                        </div>
+                        <form action="/delete_team" method="POST" style="margin: 0;">
+                            <input type="hidden" name="team_id" value="{{ t.id }}">
+                            <button type="submit" class="btn-rojo" style="padding: 6px 12px; font-size: 0.85em;">🗑️ Borrar Core</button>
+                        </form>
+                    </div>
+
+                    <!-- DESCRIPCIÓN Y NOTAS DE WIN CONDITION -->
+                    {% if t.notes %}
+                    <div style="background: rgba(0,0,0,0.25); padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid var(--poke-cyan);">
+                        <b style="color: var(--poke-cyan); display: block; margin-bottom: 4px;">📝 Descripción / Notas de Win Condition:</b>
+                        <span style="font-size: 0.95em; color: var(--text-main); white-space: pre-line;">{{ t.notes }}</span>
+                    </div>
+                    {% endif %}
+
+                    <!-- DESGLOSE DE POKÉMON -->
+                    <b style="color: var(--text-muted); font-size: 0.9em; display: block; margin-bottom: 8px;">Integrantes del Equipo:</b>
+                    {% if t.parsed_mons %}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                        {% for mon in t.parsed_mons %}
+                        <div class="pkmn-card">
+                            <b style="color: var(--poke-yellow); font-size: 1.05em; display: block;">{{ mon.name }}</b>
+                            <span style="font-size: 0.82em; color: var(--text-muted); display: block;">🎒 {{ mon.item }}</span>
+                            <span style="font-size: 0.82em; color: var(--text-muted); display: block;">✨ {{ mon.ability }}</span>
+                            {% if mon.nature != "Neutra" or mon.evs != "Sin EVs" %}
+                            <span style="font-size: 0.8em; color: #777; display: block; margin-top: 4px;">📊 {{ mon.nature }} | {{ mon.evs }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p style="font-size: 0.95em; color: var(--text-main); font-weight: bold; margin: 0;">{{ t.pokemon }}</p>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
