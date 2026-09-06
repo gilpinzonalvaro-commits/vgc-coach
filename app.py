@@ -1,27 +1,34 @@
 import os
 import re
+import sqlite3
 import requests
 import psycopg2
 from flask import Flask, render_template, request, redirect, url_for
 
 app = Flask(__name__)
 DEFAULT_USER = "polilla02"
+DB_FILE = 'vgc_data.db'
 
-# Conexión a la Base de Datos en la Nube (Neon / Render)
+# --- MOTOR HÍBRIDO DE BASE DE DATOS (POSTGRES / SQLITE) ---
 def get_db():
     db_url = os.environ.get("DATABASE_URL")
-    if db_url and db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
-    return psycopg2.connect(db_url)
+    if db_url:
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+        return psycopg2.connect(db_url), "postgres"
+    else:
+        return sqlite3.connect(DB_FILE), "sqlite"
 
 def init_db():
     try:
-        conn = get_db()
+        conn, db_type = get_db()
         cursor = conn.cursor()
         
-        cursor.execute('''
+        pk_type = "SERIAL PRIMARY KEY" if db_type == "postgres" else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        
+        cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS user_teams (
-            id SERIAL PRIMARY KEY,
+            id {pk_type},
             team_name TEXT UNIQUE,
             pokemon_list TEXT,
             pokepaste_url TEXT DEFAULT '',
@@ -31,9 +38,9 @@ def init_db():
         )
         ''')
 
-        cursor.execute('''
+        cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS series_matches (
-            id SERIAL PRIMARY KEY,
+            id {pk_type},
             opponent TEXT,
             result TEXT DEFAULT 'En curso',
             misplay_reason TEXT DEFAULT 'Sin categorizar',
@@ -42,9 +49,9 @@ def init_db():
         )
         ''')
 
-        cursor.execute('''
+        cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS games (
-            id SERIAL PRIMARY KEY,
+            id {pk_type},
             series_id INTEGER,
             game_num INTEGER,
             team_name TEXT DEFAULT 'Equipo Principal Polilla',
@@ -65,22 +72,24 @@ def init_db():
         )
         ''')
 
-        cursor.execute('''
+        cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS tournaments (
-            id SERIAL PRIMARY KEY,
+            id {pk_type},
             name TEXT,
             cp INTEGER,
             date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         ''')
         
+        # Auto-reparación de registros antiguos con nombres vacíos
+        cursor.execute("UPDATE series_matches SET opponent = 'Rival Showdown' WHERE opponent IS NULL OR opponent = '' OR opponent = 'VS';")
+        
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"Error inicializando base de datos en la nube: {e}")
+        print(f"Error inicializando base de datos: {e}")
 
-if os.environ.get("DATABASE_URL"):
-    init_db()
+init_db()
 
 def fetch_pokepaste(url):
     if not url or "pokepast.es" not in url: return ""
@@ -228,18 +237,26 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         for line in log.split("\n"):
             parts = line.split("|")
             if len(parts) > 3 and parts[1] == "player":
-                players[parts[2]] = parts[3]
+                p_slot = parts[2].strip()
+                p_name = parts[3].strip()
+                if p_name:
+                    players[p_slot] = p_name
                 
         user_p = "p1"
-        norm_target = "".join(e for e in user_name.lower() if e.isalnum())
+        target_user = user_name if (user_name and user_name.strip()) else DEFAULT_USER
+        norm_target = "".join(e for e in target_user.lower() if e.isalnum())
+        
         for pid, pname in players.items():
             norm_pname = "".join(e for e in pname.lower() if e.isalnum())
-            if norm_target in norm_pname or norm_pname in norm_target:
+            if norm_target and (norm_target in norm_pname or norm_pname in norm_target):
                 user_p = pid
                 break
                 
         opp_p = "p2" if user_p == "p1" else "p1"
-        opponent_name = players.get(opp_p, "Rival Showdown")
+        
+        opponent_name = players.get(opp_p, "Rival Showdown").strip()
+        if not opponent_name:
+            opponent_name = "Rival Showdown"
 
         winner_name = data.get("winner", "")
         if not winner_name:
@@ -281,7 +298,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                     if mon not in opp_team: opp_team.append(mon)
             elif cmd in ["switch", "drag"] and len(parts) > 3:
                 slot, mon = parts[2], parts[3].split(",")[0].strip()
-                who = user_name if slot.startswith(user_p) else opponent_name
+                who = target_user if slot.startswith(user_p) else opponent_name
                 clean_actions.append(f"{who} saca a: {mon}")
                 if slot.startswith(user_p) and mon not in my_leads and len(my_leads) < 2: my_leads.append(mon)
                 elif slot.startswith(opp_p) and mon not in opp_leads and len(opp_leads) < 2: opp_leads.append(mon)
@@ -297,14 +314,14 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                         if mega_mon not in opp_megas: opp_megas.append(mega_mon)
             elif cmd == "move" and len(parts) > 3:
                 slot, move = parts[2], parts[3]
-                who = user_name if slot.startswith(user_p) else opponent_name
+                who = target_user if slot.startswith(user_p) else opponent_name
                 clean_actions.append(f"{who} usa {move}")
                 if not slot.startswith(user_p) and move in ["Tailwind", "Trick Room"]: opp_speed_control = True
                 if move in ["Tailwind", "Trick Room", "Rain Dance", "Sunny Day"]:
                     turn_logs.append(f"🌪️ <b>[T{current_turn}]</b> {'Tú' if slot.startswith(user_p) else 'El rival'} usó <b>{move}</b>.")
             elif cmd == "faint" and len(parts) > 2:
                 fainted_mon = parts[2].split(":")[1].strip() if ":" in parts[2] else parts[2]
-                who_lost = user_name if parts[2].startswith(user_p) else opponent_name
+                who_lost = target_user if parts[2].startswith(user_p) else opponent_name
                 clean_actions.append(f"💀 KO: {who_lost} pierde a {fainted_mon}")
                 if parts[2].startswith(user_p):
                     user_faints_log.append((current_turn, fainted_mon))
@@ -327,7 +344,7 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         if my_mega_str != "Ninguna": tactical_notes.append(f"<b>Tu Mega:</b> {my_mega_str}")
 
         actions_summary_str = "\n".join(clean_actions[:60])
-        ai_report = analyze_with_ai(actions_summary_str, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team)
+        ai_report = analyze_with_ai(actions_summary_str, target_user, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team)
         
         if ai_report: coach_report_str = ai_report
         else: coach_report_str = generate_heuristic_report(user_won, my_leads, opp_leads, my_backs, user_faints_log, opp_faints_log, opp_speed_control, archetype, opponent_name)
@@ -355,11 +372,11 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
 
 @app.route('/')
 def index():
-    if not os.environ.get("DATABASE_URL"):
-        return "⚠️ Error: Falta configurar DATABASE_URL en Render."
-        
-    conn = get_db()
+    conn, db_type = get_db()
     cursor = conn.cursor()
+    
+    placeholder = "%s" if db_type == "postgres" else "?"
+    
     cursor.execute("SELECT id, team_name, pokemon_list, pokepaste_url, notes, raw_paste FROM user_teams ORDER BY id DESC")
     user_teams = []
     for r in cursor.fetchall():
@@ -372,7 +389,9 @@ def index():
     total_series_count = len(series_rows)
     for s in series_rows:
         s_id, opp, s_res, misplay, notes, date = s
-        cursor.execute("SELECT game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary, coach_report FROM games WHERE series_id = %s ORDER BY game_num ASC", (s_id,))
+        opp_display = opp.strip() if (opp and opp.strip()) else "Rival Showdown"
+        
+        cursor.execute(f"SELECT game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary, coach_report FROM games WHERE series_id = {placeholder} ORDER BY game_num ASC", (s_id,))
         games = cursor.fetchall()
         g_wins = sum(1 for g in games if g[6] == 'Victoria')
         g_losses = sum(1 for g in games if g[6] == 'Derrota')
@@ -380,7 +399,9 @@ def index():
         elif g_losses >= 2: calc_result = "Derrota (BO3)"
         else: calc_result = f"En curso ({g_wins}-{g_losses})"
         if calc_result == "Victoria (BO3)": total_series_wins += 1
-        series_list.append({"id": s_id, "opponent": opp, "result": calc_result, "misplay": misplay, "notes": notes, "date": date.strftime('%Y-%m-%d') if date else '', "games": games})
+        
+        date_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)[:10]
+        series_list.append({"id": s_id, "opponent": opp_display, "result": calc_result, "misplay": misplay, "notes": notes, "date": date_str, "games": games})
     
     series_winrate = round((total_series_wins / total_series_count * 100), 1) if total_series_count > 0 else 0
     cursor.execute("SELECT my_lead, COUNT(*), SUM(CASE WHEN result = 'Victoria' THEN 1 ELSE 0 END) FROM games GROUP BY my_lead HAVING COUNT(*) >= 1")
@@ -397,15 +418,14 @@ def index():
     total_cp = cursor.fetchone()[0] or 0
     cp_pct = round(min((total_cp / 900) * 100, 100), 1)
     
-    coach_advice = ["¡BASE DE DATOS SEGURA EN LA NUBE! Tus equipos ya no se borrarán nunca más."]
+    db_status = "☁️ BASE DE DATOS POSTGRESQL (NEON)" if db_type == "postgres" else "💾 BASE DE DATOS LOCAL (SQLITE)"
+    coach_advice = [f"ESTADO DE LA BASE DE DATOS: {db_status}"]
     conn.close()
     return render_template('dashboard.html', user_teams=user_teams, series_list=series_list, series_winrate=series_winrate, total_series_count=total_series_count, total_series_wins=total_series_wins, lead_stats=lead_stats, misplay_stats=misplay_stats, team_performance=team_performance, archetype_stats=archetype_stats, mega_stats=mega_stats, total_cp=total_cp, cp_pct=cp_pct, coach_advice="<br><br>".join(coach_advice), default_user=DEFAULT_USER)
 
-# --- RUTAS DE ACCIÓN BLINDADAS (ACEPTAN GET Y POST) ---
 @app.route('/add_team', methods=['GET', 'POST'])
 def add_team():
-    if request.method == 'GET':
-        return redirect(url_for('index'))
+    if request.method == 'GET': return redirect(url_for('index'))
     team_name = request.form.get('team_name')
     pokepaste_url = request.form.get('pokepaste_url', '')
     notes = request.form.get('notes', '')
@@ -414,101 +434,114 @@ def add_team():
     pokemon_list = ", ".join([mon['name'] for mon in parsed_mons])
     if not pokemon_list: pokemon_list = "⚠️ Error leyendo Paste."
     if team_name:
-        conn = get_db()
+        conn, db_type = get_db()
         cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) 
-            VALUES (%s, %s, %s, %s, %s) 
-            ON CONFLICT (team_name) DO UPDATE SET 
-            pokemon_list = EXCLUDED.pokemon_list, 
-            pokepaste_url = EXCLUDED.pokepaste_url, 
-            notes = EXCLUDED.notes, 
-            raw_paste = EXCLUDED.raw_paste
-        """, (team_name, pokemon_list, pokepaste_url, notes, raw_paste))
+        if db_type == "postgres":
+            cursor.execute("""
+                INSERT INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) 
+                VALUES (%s, %s, %s, %s, %s) 
+                ON CONFLICT (team_name) DO UPDATE SET 
+                pokemon_list = EXCLUDED.pokemon_list, 
+                pokepaste_url = EXCLUDED.pokepaste_url, 
+                notes = EXCLUDED.notes, 
+                raw_paste = EXCLUDED.raw_paste
+            """, (team_name, pokemon_list, pokepaste_url, notes, raw_paste))
+        else:
+            cursor.execute("INSERT OR REPLACE INTO user_teams (team_name, pokemon_list, pokepaste_url, notes, raw_paste) VALUES (?, ?, ?, ?, ?)", 
+                           (team_name, pokemon_list, pokepaste_url, notes, raw_paste))
         conn.commit()
         conn.close()
     return redirect(url_for('index'))
 
 @app.route('/parse_replay', methods=['GET', 'POST'])
 def parse_replay_route():
-    if request.method == 'GET':
-        return redirect(url_for('index'))
+    if request.method == 'GET': return redirect(url_for('index'))
     url = request.form.get('replay_url')
     user_name = request.form.get('user_name') or DEFAULT_USER
     series_id = request.form.get('series_id')
     team_name = request.form.get('team_name') or 'Equipo Principal Polilla'
     parsed = parse_showdown_replay(url, user_name)
     if parsed:
-        conn = get_db()
+        conn, db_type = get_db()
         cursor = conn.cursor()
+        placeholder = "%s" if db_type == "postgres" else "?"
+        
+        opp_name_clean = parsed['opponent'].strip() if parsed['opponent'] and parsed['opponent'].strip() else "Rival Showdown"
+        
         if not series_id or series_id == "new":
-            cursor.execute("INSERT INTO series_matches (opponent, result) VALUES (%s, %s) RETURNING id", (parsed['opponent'], 'En curso'))
-            series_id = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM games WHERE series_id = %s", (series_id,))
+            if db_type == "postgres":
+                cursor.execute("INSERT INTO series_matches (opponent, result) VALUES (%s, %s) RETURNING id", (opp_name_clean, 'En curso'))
+                series_id = cursor.fetchone()[0]
+            else:
+                cursor.execute("INSERT INTO series_matches (opponent, result) VALUES (?, ?)", (opp_name_clean, 'En curso'))
+                series_id = cursor.lastrowid
+                
+        cursor.execute(f"SELECT COUNT(*) FROM games WHERE series_id = {placeholder}", (series_id,))
         game_num = cursor.fetchone()[0] + 1
-        cursor.execute('''INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary, coach_report)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
+        
+        cursor.execute(f'''INSERT INTO games (series_id, game_num, team_name, my_lead, my_back, opp_lead, opp_back, result, my_mega, opp_mega, archetype, turns, replay_url, tactical_summary, coach_report)
+            VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})''', 
             (series_id, game_num, team_name, parsed['my_lead'], parsed['my_back'], parsed['opp_lead'], parsed['opp_back'], parsed['result'], parsed['my_mega'], parsed['opp_mega'], parsed['archetype'], parsed['turns'], parsed['replay_url'], parsed['tactical_summary'], parsed['coach_report']))
         
-        cursor.execute("SELECT result FROM games WHERE series_id = %s", (series_id,))
+        cursor.execute(f"SELECT result FROM games WHERE series_id = {placeholder}", (series_id,))
         results = [r[0] for r in cursor.fetchall()]
         wins, losses = results.count('Victoria'), results.count('Derrota')
-        if wins >= 2: cursor.execute("UPDATE series_matches SET result = 'Victoria (BO3)' WHERE id = %s", (series_id,))
-        elif losses >= 2: cursor.execute("UPDATE series_matches SET result = 'Derrota (BO3)' WHERE id = %s", (series_id,))
+        if wins >= 2: cursor.execute(f"UPDATE series_matches SET result = 'Victoria (BO3)' WHERE id = {placeholder}", (series_id,))
+        elif losses >= 2: cursor.execute(f"UPDATE series_matches SET result = 'Derrota (BO3)' WHERE id = {placeholder}", (series_id,))
         conn.commit()
         conn.close()
     return redirect(url_for('index'))
 
 @app.route('/update_misplay', methods=['GET', 'POST'])
 def update_misplay():
-    if request.method == 'GET':
-        return redirect(url_for('index'))
+    if request.method == 'GET': return redirect(url_for('index'))
     series_id = request.form.get('series_id')
     reason = request.form.get('reason')
     notes = request.form.get('notes', '')
-    conn = get_db()
+    conn, db_type = get_db()
     cursor = conn.cursor()
-    cursor.execute("UPDATE series_matches SET misplay_reason = %s, notes = %s WHERE id = %s", (reason, notes, series_id))
+    placeholder = "%s" if db_type == "postgres" else "?"
+    cursor.execute(f"UPDATE series_matches SET misplay_reason = {placeholder}, notes = {placeholder} WHERE id = {placeholder}", (reason, notes, series_id))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
 @app.route('/delete_series', methods=['GET', 'POST'])
 def delete_series():
-    if request.method == 'GET':
-        return redirect(url_for('index'))
+    if request.method == 'GET': return redirect(url_for('index'))
     series_id = request.form.get('series_id')
-    conn = get_db()
+    conn, db_type = get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM games WHERE series_id = %s", (series_id,))
-    cursor.execute("DELETE FROM series_matches WHERE id = %s", (series_id,))
+    placeholder = "%s" if db_type == "postgres" else "?"
+    cursor.execute(f"DELETE FROM games WHERE series_id = {placeholder}", (series_id,))
+    cursor.execute(f"DELETE FROM series_matches WHERE id = {placeholder}", (series_id,))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
 @app.route('/delete_team', methods=['GET', 'POST'])
 def delete_team():
-    if request.method == 'GET':
-        return redirect(url_for('index'))
+    if request.method == 'GET': return redirect(url_for('index'))
     team_id = request.form.get('team_id')
     if team_id:
-        conn = get_db()
+        conn, db_type = get_db()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM user_teams WHERE id = %s", (team_id,))
+        placeholder = "%s" if db_type == "postgres" else "?"
+        cursor.execute(f"DELETE FROM user_teams WHERE id = {placeholder}", (team_id,))
         conn.commit()
         conn.close()
     return redirect(url_for('index'))
 
 @app.route('/add_cp', methods=['GET', 'POST'])
 def add_cp():
-    if request.method == 'GET':
-        return redirect(url_for('index'))
+    if request.method == 'GET': return redirect(url_for('index'))
     name = request.form.get('name') or 'Torneo VGC'
     cp = int(request.form.get('cp') or 0)
     if cp > 0:
-        conn = get_db()
+        conn, db_type = get_db()
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO tournaments (name, cp) VALUES (%s, %s)", (name, cp))
+        placeholder = "%s" if db_type == "postgres" else "?"
+        cursor.execute(f"INSERT INTO tournaments (name, cp) VALUES ({placeholder}, {placeholder})", (name, cp))
         conn.commit()
         conn.close()
     return redirect(url_for('index'))
