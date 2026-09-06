@@ -9,7 +9,6 @@ app = Flask(__name__)
 DEFAULT_USER = "polilla02"
 DB_FILE = 'vgc_data.db'
 
-# --- MOTOR HÍBRIDO DE BASE DE DATOS (POSTGRES / SQLITE) ---
 def get_db():
     db_url = os.environ.get("DATABASE_URL")
     if db_url:
@@ -23,7 +22,6 @@ def init_db():
     try:
         conn, db_type = get_db()
         cursor = conn.cursor()
-        
         pk_type = "SERIAL PRIMARY KEY" if db_type == "postgres" else "INTEGER PRIMARY KEY AUTOINCREMENT"
         
         cursor.execute(f'''
@@ -81,13 +79,11 @@ def init_db():
         )
         ''')
         
-        # Auto-reparación de registros antiguos con nombres vacíos
         cursor.execute("UPDATE series_matches SET opponent = 'Rival Showdown' WHERE opponent IS NULL OR opponent = '' OR opponent = 'VS';")
-        
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"Error inicializando base de datos: {e}")
+        print(f"Error inicializando DB: {e}")
 
 init_db()
 
@@ -144,47 +140,50 @@ def detect_archetype(log_text, opp_team):
     elif any(p in team_str for p in ["chi-yu", "flutter mane", "urshifu", "chien-pao", "iron bundle"]): return "Hyper Offense"
     else: return "Balance / Positional"
 
-def analyze_with_ai(clean_actions, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team):
+# --- MOTOR MEJORADO CON ALTA FIDELIDAD DE DATOS VGC ---
+def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team):
     api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        return None
+    if not api_key: return None
         
     url = "https://api.openai.com/v1/chat/completions"
     color = "#22c55e" if user_won else "#ef4444"
     resultado = "GANÓ" if user_won else "PERDIÓ"
     
     system_prompt = """
-    ROL: El Coach Táctico Principal de un jugador aspirante al Campeonato Mundial de Pokémon VGC. Tu nivel de análisis es hiper-especializado, quirúrgico y directo.
-    FORMATO DEL METAGAME: VGC con Megaevoluciones activas (NO existe la Teracristalización).
-    OBJETIVO: Generar una auditoría estricta en HTML usando los datos del combate.
+    ERES: Coach Táctico de Élite de Pokémon VGC (Nivel Campeonato Mundial). Tu análisis es puramente técnico, libre de especulaciones y 100% basado en el log provisto.
+    FORMATO METAGAME: VGC con Megaevoluciones (NO existe Teracristalización).
+
+    REGLAS DE RIGOR TÁCTICO:
+    1. Basarás tus afirmaciones EXCLUSIVAMENTE en los turnos y eventos explícitos del log (movimientos, KOs, cambios, habilidades activadas y climas).
+    2. Evalúa si la Megaevolución del jugador tuvo sinergia con sus leads o si sufrió por falta de control de velocidad/coberturas.
+    3. Si hubo un KO clave o una jugada determinante (ej. Sorpresa, Viento Afín, Espacio Raro, Protección), identifícalo con el número de turno exacto.
+    4. Sé directo, riguroso y utiliza jerga profesional de VGC (Win Condition, Speed Control, Damage Calc, Pivote, Matchup, Lead Pressure).
     """
     
     user_prompt = f"""
-    Analiza este combate donde tu jugador '{user_name}' {resultado} la partida contra '{opponent_name}'.
+    AUDITORÍA DE COMBATE COMPLETO:
 
-    DATOS CLAVE:
+    JUGADORES:
+    - Jugador Principal: '{user_name}' (Resultado: {resultado})
+    - Rival: '{opponent_name}'
+
+    EQUIPOS Y SELECCIÓN DE LEADS:
     - Equipo de {user_name}: {', '.join(my_team)}
-    - Leads de {user_name}: {', '.join(my_leads)}
-    - Equipo de {opponent_name}: {', '.join(opp_team)}
-    - Leads de {opponent_name}: {', '.join(opp_leads)}
+    - Leads alineados por {user_name}: {', '.join(my_leads)}
+    - Equipo del Rival ({opponent_name}): {', '.join(opp_team)}
+    - Leads alineados por el Rival: {', '.join(opp_leads)}
 
-    SECUENCIA DE ACCIONES TURNO A TURNO:
-    {clean_actions}
+    LOG COMPLETO DETALLADO TURNO A TURNO (Eventos reales):
+    {clean_actions_text}
 
-    REGLAS DE EVALUACIÓN TÁCTICA:
-    1. TEAM PREVIEW Y MEGA-FIT: Analiza la elección de la Mega frente a los 6 del rival.
-    2. SPEED CONTROL: Determina quién controló la velocidad y si se pudo denegar.
-    3. PUNTO DE INFLEXIÓN: Identifica el turno exacto donde se decidió el combate.
-    4. ADAPTACIÓN GAME 2: Da instrucciones concretas para el siguiente juego (cambio de Lead o Mega).
-
-    DEVUELVE EXACTAMENTE ESTA ESTRUCTURA HTML (Cero Markdown):
+    GENERA EL INFORME CON LA SIGUIENTE ESTRUCTURA HTML EXACTA (Sin sintaxis markdown ni asteriscos):
     <div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>
         <b style='color: {color}; font-size: 1.15em;'>🤖 COACH IA: AUDITORÍA TÁCTICA DE NIVEL MUNDIAL</b>
     </div>
-    <p>📌 <b>1. Team Preview y Mega-Fit:</b><br>[Análisis profundo del lead y la mega]</p>
-    <p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Análisis de control de velocidad]</p>
-    <p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Turno crítico y motivo]</p>
-    <p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Consejos específicos]</p>
+    <p>📌 <b>1. Team Preview y Mega-Fit:</b><br>[Analiza la elección de la Mega y el matchup de Leads frente a los 6 del rival]</p>
+    <p>⏱️ <b>2. Control del Ritmo y Speed Control:</b><br>[Analiza la gestión de velocidades: Viento Afín, Espacio Raro, Sorpresa, Cambios de Base Speed por Mega]</p>
+    <p>📉 <b>3. Punto de Inflexión y KOs Clave:</b><br>[Señala el turno crítico con número exacto (ej. Turno 2) y el impacto del primer KO]</p>
+    <p>🎯 <b>4. Plan de Ajuste Táctico para el Game 2:</b><br>[Instrucción concreta para la siguiente partida: ajusta leads, timings de Mega o prioridades]</p>
     """
 
     headers = {
@@ -198,31 +197,30 @@ def analyze_with_ai(clean_actions, user_name, opponent_name, user_won, my_leads,
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        "temperature": 0.2
+        "temperature": 0.1
     }
     
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=20)
+        response = requests.post(url, json=payload, headers=headers, timeout=25)
         if response.status_code == 200:
             data = response.json()
             return data['choices'][0]['message']['content'].strip()
     except Exception as e:
-        print(f"Error OpenAI: {e}")
+        print(f"Error OpenAI API: {e}")
         
     return None
 
-def generate_heuristic_report(user_won, my_leads, opp_leads, my_backs, user_faints_log, opp_faints_log, opp_speed_control, archetype, opponent_name):
+def generate_heuristic_report(user_won, my_leads, opp_leads, archetype):
     report_blocks = []
     if not user_won:
         report_blocks.append("<div style='border-bottom: 2px solid var(--loss-color); padding-bottom: 6px; margin-bottom: 12px;'><b style='color: var(--loss-color); font-size: 1.15em;'>👑 INFORME TÁCTICO (MODO OFFLINE)</b></div>")
-        my_lead_str = " + ".join(my_leads) if my_leads else "Tu pareja inicial"
-        opp_lead_str = " + ".join(opp_leads) if opp_leads else "la pareja rival"
-        report_blocks.append(f"📌 <b>1. Auditoría de Leads:</b> Abriste con <b>{my_lead_str}</b> frente a <b>{opp_lead_str}</b>.")
+        report_blocks.append(f"📌 <b>1. Auditoría de Leads:</b> Salida con {' + '.join(my_leads)} contra {' + '.join(opp_leads)}.")
     else:
         report_blocks.append("<div style='border-bottom: 2px solid var(--win-color); padding-bottom: 6px; margin-bottom: 12px;'><b style='color: var(--win-color); font-size: 1.15em;'>👑 ANÁLISIS DE VICTORIA TÁCTICA</b></div>")
-        report_blocks.append("✅ <b>Ejecución Impecable:</b> Controlaste el ritmo del combate perfectamente.")
+        report_blocks.append("✅ <b>Ejecución Impecable:</b> Controlaste la partida.")
     return "<br><br>".join(report_blocks)
 
+# --- PARSER COMPLETO Y DETALLADO DE SHOWDOWN REPLAYS ---
 def parse_showdown_replay(url, user_name=DEFAULT_USER):
     try:
         clean_url = url.split("?")[0].strip()
@@ -239,13 +237,12 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
             if len(parts) > 3 and parts[1] == "player":
                 p_slot = parts[2].strip()
                 p_name = parts[3].strip()
-                if p_name:
-                    players[p_slot] = p_name
+                if p_name: players[p_slot] = p_name
                 
-        user_p = "p1"
         target_user = user_name if (user_name and user_name.strip()) else DEFAULT_USER
         norm_target = "".join(e for e in target_user.lower() if e.isalnum())
         
+        user_p = "p1"
         for pid, pname in players.items():
             norm_pname = "".join(e for e in pname.lower() if e.isalnum())
             if norm_target and (norm_target in norm_pname or norm_pname in norm_target):
@@ -253,33 +250,23 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                 break
                 
         opp_p = "p2" if user_p == "p1" else "p1"
-        
-        opponent_name = players.get(opp_p, "Rival Showdown").strip()
-        if not opponent_name:
-            opponent_name = "Rival Showdown"
+        opponent_name = players.get(opp_p, "Rival Showdown").strip() or "Rival Showdown"
 
         winner_name = data.get("winner", "")
-        if not winner_name:
-            for line in log.split("\n"):
-                parts = line.split("|")
-                if len(parts) > 2 and parts[1] == "win":
-                    winner_name = parts[2]
-
         user_won = False
         if winner_name:
             norm_winner = "".join(e for e in winner_name.lower() if e.isalnum())
             norm_player = "".join(e for e in players.get(user_p, "").lower() if e.isalnum())
             if norm_player and (norm_player in norm_winner or norm_winner in norm_player):
                 user_won = True
-        
-        if "|init|battle" in log:
-            games_logs = log.split("|init|battle")
-            if len(games_logs) > 1: log = "|init|battle" + games_logs[-1]
 
         my_team, opp_team, my_leads, opp_leads, my_megas, opp_megas = [], [], [], [], [], []
         turns, first_ko = 0, None
-        current_turn, opp_speed_control = 0, False
-        turn_logs, user_faints_log, opp_faints_log, clean_actions = [], [], [], []
+        current_turn = 0
+        turn_logs, clean_actions = [], []
+
+        def get_owner(slot_str):
+            return target_user if slot_str.startswith(user_p) else opponent_name
 
         for line in log.split("\n"):
             parts = line.split("|")
@@ -298,8 +285,9 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                     if mon not in opp_team: opp_team.append(mon)
             elif cmd in ["switch", "drag"] and len(parts) > 3:
                 slot, mon = parts[2], parts[3].split(",")[0].strip()
-                who = target_user if slot.startswith(user_p) else opponent_name
-                clean_actions.append(f"{who} saca a: {mon}")
+                hp = parts[4] if len(parts) > 4 else ""
+                who = get_owner(slot)
+                clean_actions.append(f"🔄 {who} entra/cambia a {mon} (Salud: {hp})")
                 if slot.startswith(user_p) and mon not in my_leads and len(my_leads) < 2: my_leads.append(mon)
                 elif slot.startswith(opp_p) and mon not in opp_leads and len(opp_leads) < 2: opp_leads.append(mon)
             elif cmd in ["detailschange", "-mega"] and "Mega" in line:
@@ -308,27 +296,48 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                 for part in parts:
                     if "Mega" in part: mega_mon = part.split(",")[0].strip()
                 if mega_mon:
+                    who = get_owner(slot)
+                    clean_actions.append(f"✨ {who} ACTIVÓ MEGAEVOLUCIÓN en {mega_mon}")
                     if slot.startswith(user_p):
                         if mega_mon not in my_megas: my_megas.append(mega_mon)
                     else:
                         if mega_mon not in opp_megas: opp_megas.append(mega_mon)
             elif cmd == "move" and len(parts) > 3:
                 slot, move = parts[2], parts[3]
-                who = target_user if slot.startswith(user_p) else opponent_name
-                clean_actions.append(f"{who} usa {move}")
-                if not slot.startswith(user_p) and move in ["Tailwind", "Trick Room"]: opp_speed_control = True
+                target = parts[4] if len(parts) > 4 else ""
+                who = get_owner(slot)
+                clean_actions.append(f"⚔️ {who} usa {move}" + (f" objetivo {target}" if target else ""))
                 if move in ["Tailwind", "Trick Room", "Rain Dance", "Sunny Day"]:
-                    turn_logs.append(f"🌪️ <b>[T{current_turn}]</b> {'Tú' if slot.startswith(user_p) else 'El rival'} usó <b>{move}</b>.")
+                    turn_logs.append(f"🌪️ <b>[T{current_turn}]</b> {who} usó <b>{move}</b>.")
+            elif cmd == "-damage" and len(parts) > 3:
+                target, hp = parts[2], parts[3]
+                clean_actions.append(f"  └─> Daño a {target}: Queda a {hp}")
+            elif cmd == "-heal" and len(parts) > 3:
+                target, hp = parts[2], parts[3]
+                clean_actions.append(f"  └─> Curación a {target}: Queda a {hp}")
+            elif cmd == "-ability" and len(parts) > 3:
+                target, ability = parts[2], parts[3]
+                clean_actions.append(f"  └─> Habilidad activada en {target}: {ability}")
+            elif cmd == "-weather" and len(parts) > 2:
+                weather = parts[2]
+                clean_actions.append(f"  └─> Clima activo: {weather}")
+            elif cmd == "-fieldstart" and len(parts) > 2:
+                field = parts[2]
+                clean_actions.append(f"  └─> Efecto de campo activo: {field}")
+            elif cmd == "-boost" and len(parts) > 4:
+                target, stat, amt = parts[2], parts[3], parts[4]
+                clean_actions.append(f"  └─> {target} sube stat {stat} (+{amt})")
+            elif cmd == "-unboost" and len(parts) > 4:
+                target, stat, amt = parts[2], parts[3], parts[4]
+                clean_actions.append(f"  └─> {target} baja stat {stat} (-{amt})")
             elif cmd == "faint" and len(parts) > 2:
                 fainted_mon = parts[2].split(":")[1].strip() if ":" in parts[2] else parts[2]
-                who_lost = target_user if parts[2].startswith(user_p) else opponent_name
+                who_lost = get_owner(parts[2])
                 clean_actions.append(f"💀 KO: {who_lost} pierde a {fainted_mon}")
                 if parts[2].startswith(user_p):
-                    user_faints_log.append((current_turn, fainted_mon))
                     if not first_ko: first_ko = f"{fainted_mon} (Tuyo, T{current_turn})"
                     turn_logs.append(f"💀 <b>[T{current_turn}] KO:</b> Tu <b>{fainted_mon}</b> cayó.")
                 else:
-                    opp_faints_log.append((current_turn, fainted_mon))
                     if not first_ko: first_ko = f"{fainted_mon} (Rival, T{current_turn})"
                     turn_logs.append(f"💥 <b>[T{current_turn}] KO:</b> Rival <b>{fainted_mon}</b> cayó.")
 
@@ -343,14 +352,15 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         if opp_mega_str != "Ninguna": tactical_notes.append(f"<b>Mega Rival:</b> {opp_mega_str}")
         if my_mega_str != "Ninguna": tactical_notes.append(f"<b>Tu Mega:</b> {my_mega_str}")
 
-        actions_summary_str = "\n".join(clean_actions[:60])
-        ai_report = analyze_with_ai(actions_summary_str, target_user, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team)
+        # Pasamos el LOG COMPLETO sin tijeretazos
+        full_actions_str = "\n".join(clean_actions)
+        ai_report = analyze_with_ai(full_actions_str, target_user, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team)
         
         if ai_report: coach_report_str = ai_report
-        else: coach_report_str = generate_heuristic_report(user_won, my_leads, opp_leads, my_backs, user_faints_log, opp_faints_log, opp_speed_control, archetype, opponent_name)
+        else: coach_report_str = generate_heuristic_report(user_won, my_leads, opp_leads, archetype)
         
         if turn_logs:
-            turn_by_turn_html = f"<details style='margin-top:16px; cursor:pointer; background: var(--inner-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);'><summary style='font-weight:900; color:var(--accent-blue);'>📑 Ver Log Básico</summary><div style='font-size:0.88em; margin-top:10px; color:var(--text-color); line-height: 1.6;'>" + "<br>".join(turn_logs) + "</div></details>"
+            turn_by_turn_html = f"<details style='margin-top:16px; cursor:pointer; background: var(--inner-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);'><summary style='font-weight:900; color:var(--poke-cyan);'>📑 Ver Log Resumido de Eventos Clave</summary><div style='font-size:0.88em; margin-top:10px; color:var(--text-main); line-height: 1.6;'>" + "<br>".join(turn_logs) + "</div></details>"
             coach_report_str += turn_by_turn_html
 
         return {
@@ -374,7 +384,6 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
 def index():
     conn, db_type = get_db()
     cursor = conn.cursor()
-    
     placeholder = "%s" if db_type == "postgres" else "?"
     
     cursor.execute("SELECT id, team_name, pokemon_list, pokepaste_url, notes, raw_paste FROM user_teams ORDER BY id DESC")
@@ -465,7 +474,6 @@ def parse_replay_route():
         conn, db_type = get_db()
         cursor = conn.cursor()
         placeholder = "%s" if db_type == "postgres" else "?"
-        
         opp_name_clean = parsed['opponent'].strip() if parsed['opponent'] and parsed['opponent'].strip() else "Rival Showdown"
         
         if not series_id or series_id == "new":
