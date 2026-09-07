@@ -198,7 +198,7 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
         "Eres un Coach Experto en el Mundial de Pokémon VGC (Video Game Championships). Tu objetivo es analizar "
         "partidas de jugadores para ayudarles a mejorar su estrategia, toma de decisiones y construcción de equipos.\n\n"
         "instrucciones:\n"
-        "Analiza el registro de batalla basándote strictly en las mecánicas de VGC. Piensa paso a paso (Chain of Thought): "
+        "Analiza el registro de batalla basándote estrictamente en las mecánicas de VGC. Piensa paso a paso (Chain of Thought): "
         "primero identifica las 'win conditions' de ambos equipos a partir de los leads y backs, luego evalúa las sinergias "
         "y finalmente desglosa cada turno.\n"
         "Si en el registro falta información sobre algún turno o movimiento, responde: 'Información no detallada en el registro' "
