@@ -181,7 +181,7 @@ def get_deterministic_facts(log):
     if intimidate_used:
         facts.append("📉 HABILIDAD: Intimidación registrada (-1 Ataque físico). Habilidades como Competitivo o Tenacidad reciben +2 en stats.")
 
-    facts.append("🛡️ INMUNIDADES TIPOS (0x): Tierra inmune a Eléctrico; Volador a Tierra; Hada a Dragón; Acero a Veneno; Fantasma a Normal/Lucha; Siniestro a Psíquico.")
+    facts.append("🛡️ INMUNIDADES Y DEBILIDADES CLAVE: Tierra es 100% INMUNE a Eléctrico; Agua es DÉBIL (2x) a Eléctrico; Volador es DÉBIL (2x) a Eléctrico; Hada es inmune a Dragón.")
     return facts
 
 def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype, mechanic_facts):
@@ -209,9 +209,10 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
         "2. CONEXIÓN DE BUFFS CON KOS: Si una habilidad como Competitivo (Competitive) o Tenacidad (Defiant) se activa por Intimidación u otra bajada de stats, "
         "   atribuye el daño devastador o KOs conseguidos a dicho aumento de estadística (+2 SpA / +2 Atk).\n"
         "3. RIGOR ABSOLUTO EN MEGAEVOLUCIONES: Analiza ÚNICAMENTE Megaevoluciones que existan oficialmente en la saga Pokémon (ej. Mega Charizard, Mega Kangaskhan, Mega Salamence, Mega Gengar). "
-        "   JAMÁS inventes Megaevoluciones inexistentes (ej. NO EXISTEN Raichu-Mega, Incineroar-Mega, Ceruledge-Mega, etc.).\n"
+        "   JAMÁS inventes Megaevoluciones inexistentes (ej. NO EXISTEN Raichu-Mega, Incineroar-Mega, Ceruledge-Mega, Staraptor-Mega, etc.).\n"
         "4. RESPETO AL RESULTADO REAL: Si el prompt indica que el usuario GANÓ, asume la victoria. JAMÁS digas que el usuario perdió ni analices el combate como una derrota.\n"
-        "5. LÓGICA DE CAMBIOS Y POSICIÓN EN CAMPO: Revisa qué Pokémon están en combate en cada turno. JAMÁS sugieras 'cambiar a X' si X YA se encuentra en el campo de batalla.\n\n"
+        "5. LÓGICA DE CAMBIOS Y POSICIÓN EN CAMPO: Revisa qué Pokémon están en combate en cada turno. JAMÁS sugieras 'cambiar a X' si X YA se encuentra en el campo de batalla.\n"
+        "6. TABLA DE TIPOS Y DEBILIDADES RIGUROSA: Respeta las debilidades elementales. JAMÁS recomiendes mantener a un Pokémon de tipo Agua (como Milotic) frente a una amenaza Eléctrica (como Raichu) como si fuera un tanque o 'win condition', ya que recibe daño superefectivo (2x). La win condition lógica contra amenazas Eléctricas siempre son los tipos Tierra (como Excadrill) por su inmunidad (0x).\n\n"
         "mecanicas_a_evaluar:\n"
         "1. Megaevoluciones reales presentes.\n"
         "2. Tabla de tipos (ventajas, debilidades e inmunidades).\n"
