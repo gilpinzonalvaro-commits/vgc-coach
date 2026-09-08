@@ -203,8 +203,17 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
         "y finalmente desglosa cada turno.\n"
         "Si en el registro falta información sobre algún turno o movimiento, responde: 'Información no detallada en el registro' "
         "y no inventes jugadas ni asumas acciones que no estén en el texto.\n\n"
+        "REGLAS CRÍTICAS DE EVALUACIÓN TÁCTICA Y MODO DE JUEGO:\n"
+        "1. RECONOCIMIENTO DE TEMPO Y KOS: Si el usuario consigue un KO o Doble KO en un turno, evalúalo como un ÉXITO CRÍTICO. "
+        "   NO sugieras jugadas pasivas (como Proteger o Curar) en turnos donde el usuario obtuvo KOs decisivos que le dieron ventaja clara de tempo.\n"
+        "2. CONEXIÓN DE BUFFS CON KOS: Si una habilidad como Competitivo (Competitive) o Tenacidad (Defiant) se activa por Intimidación u otra bajada de stats, "
+        "   atribuye el daño devastador o KOs conseguidos a dicho aumento de estadística (+2 SpA / +2 Atk).\n"
+        "3. RIGOR ABSOLUTO EN MEGAEVOLUCIONES: Analiza ÚNICAMENTE Megaevoluciones que existan oficialmente en la saga Pokémon (ej. Mega Charizard, Mega Kangaskhan, Mega Salamence, Mega Gengar). "
+        "   JAMÁS inventes Megaevoluciones inexistentes (ej. NO EXISTEN Raichu-Mega, Incineroar-Mega, Ceruledge-Mega, etc.).\n"
+        "4. RESPETO AL RESULTADO REAL: Si el prompt indica que el usuario GANÓ, asume la victoria. JAMÁS digas que el usuario perdió ni analices el combate como una derrota.\n"
+        "5. LÓGICA DE CAMBIOS Y POSICIÓN EN CAMPO: Revisa qué Pokémon están en combate en cada turno. JAMÁS sugieras 'cambiar a X' si X YA se encuentra en el campo de batalla.\n\n"
         "mecanicas_a_evaluar:\n"
-        "1. Megaevoluciones presentes.\n"
+        "1. Megaevoluciones reales presentes.\n"
         "2. Tabla de tipos (ventajas, debilidades e inmunidades).\n"
         "3. Puntos de estadística (Stats points), límite 66 por Pokémon.\n"
         "4. Naturalezas de los Pokémon.\n"
@@ -297,13 +306,22 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
                 break
         opp_p = "p2" if user_p == "p1" else "p1"
         opponent_name = players.get(opp_p, "Rival Showdown").strip() or "Rival Showdown"
+        
+        # DETECTOR MEJORADO DE GANADOR
         winner_name = data.get("winner", "")
+        for line in log.split("\n"):
+            parts = line.split("|")
+            if len(parts) > 2 and parts[1] == "win":
+                winner_name = parts[2].strip()
+
         user_won = False
-        if winner_name:
+        if winner_name and user_p in players:
+            p_real_name = players[user_p]
             norm_winner = "".join(e for e in winner_name.lower() if e.isalnum())
-            norm_player = "".join(e for e in players.get(user_p, "").lower() if e.isalnum())
+            norm_player = "".join(e for e in p_real_name.lower() if e.isalnum())
             if norm_player and (norm_player in norm_winner or norm_winner in norm_player):
                 user_won = True
+
         my_team, opp_team, my_leads, opp_leads, my_megas, opp_megas = [], [], [], [], [], []
         turns, first_ko, current_turn = 0, None, 0
         turn_logs, clean_actions = [], []
