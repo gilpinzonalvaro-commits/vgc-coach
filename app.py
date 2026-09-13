@@ -257,14 +257,6 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
     except Exception as e:
         print(f"Error OpenAI API: {e}")
     return None
-Es evidente que el portapapeles de tu ordenador (o el navegador) tiene un límite de caracteres y está colapsando justo en la línea 521 al intentar copiar todo el bloque de golpe. Es un problema súper común cuando pasamos archivos largos por aquí.
-
-Para esquivar este límite y que no te falte ni una sola coma, vamos a pegar el código en dos partes.
-
-Abre tu archivo app.py en VS Code, bórralo entero (Ctrl + A y luego Supr) y sigue estos dos pasos:
-
-PASO 1: Copia y pega esta primera mitad (de la línea 1 a la 319)
-Python
 import os
 import re
 import sqlite3
@@ -524,8 +516,6 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
     except Exception as e:
         print(f"Error OpenAI API: {e}")
     return None
-PASO 2: Pega esto JUSTO DEBAJO (línea 320 hasta el final)
-Python
 def generate_heuristic_report(user_won, my_leads, opp_leads, archetype):
     report_blocks = []
     if not user_won:
