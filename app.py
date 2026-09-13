@@ -139,7 +139,7 @@ def detect_archetype(log_text, opp_team):
         return "Trick Room"
     elif "tailwind" in log_lower or any(p in team_str for p in ["whimsicott", "tornadus", "talonflame", "roaring moon"]):
         return "Tailwind / Speed Control"
-    elif "drizzle" in log_lower or "rain dance" in log_lower or any(p in team_str for p in ["kyogre", "pelipper", "basculegion", "basculegion-m"]):
+    elif "drizzle" in log_lower or "rain dance" in log_lower or any(p in team_str for p in ["kyogre", "pelipper", "basculegion", "basculegion-m", "archaludon"]):
         return "Rain Weather"
     elif "drought" in log_lower or "sunny day" in log_lower or any(p in team_str for p in ["groudon", "koraidon", "torkoal", "flutter mane"]):
         return "Sun Weather"
@@ -168,23 +168,23 @@ def get_deterministic_facts(log):
             if parts[3] == "intimidate": intimidate_used = True
 
     if tr_used:
-        facts.append("⚠️ EVENTO DE CAMPO REAL: Espacio Raro (Trick Room) FUE ACTIVADO. Mientras esté activo, los Pokémon más lentos atacan primero (a igual prioridad).")
+        facts.append("⚠️ EVENTO DE CAMPO: Espacio Raro (Trick Room) FUE ACTIVADO. En igual prioridad, los Pokémon más lentos atacan primero.")
     else:
-        facts.append("ℹ️ CAMPO DE VELOCIDAD: NO se activó Espacio Raro (Trick Room) en ningún turno.")
+        facts.append("ℹ️ CAMPO DE VELOCIDAD: Espacio Raro NO estuvo activo.")
 
     if tailwind_used:
-        facts.append("🌪️ EVENTO DE VELOCIDAD: Se activó Viento Afín (Tailwind), duplicando (2x) la velocidad de ese equipo.")
+        facts.append("🌪️ EVENTO DE VELOCIDAD: Viento Afín (Tailwind) activado (2x Velocidad para ese equipo).")
 
     if weather_active:
-        if "sandstorm" in weather_active: facts.append("🏜️ CLIMA: Tormenta de Arena (Sandstorm) activa.")
-        elif "rain" in weather_active or "raindance" in weather_active: facts.append("🌧️ CLIMA: Lluvia (Rain) activa.")
-        elif "sun" in weather_active or "sunnyday" in weather_active: facts.append("☀️ CLIMA: Sol (Sun) activo.")
+        if "sandstorm" in weather_active: facts.append("🏜️ CLIMA: Tormenta de Arena activa (+50% SpD a tipos Roca).")
+        elif "rain" in weather_active or "raindance" in weather_active: facts.append("🌧️ CLIMA: Lluvia activa (Agua 1.5x, Fuego 0.5x, Thunder/Hurricane 100% precisión, Electro Shot 1 turno).")
+        elif "sun" in weather_active or "sunnyday" in weather_active: facts.append("☀️ CLIMA: Sol activo (Fuego 1.5x, Agua 0.5x, Solar Beam 1 turno).")
 
     if intimidate_used:
-        facts.append("📉 HABILIDAD: Intimidación registrada (-1 Ataque físico). Habilidades como Competitivo o Tenacidad reciben +2 en stats.")
+        facts.append("📉 HABILIDAD: Intimidación registrada (-1 Atk físico). Habilidades como Competitivo/Tenacidad ganan +2 stats.")
 
-    facts.append("⚡ MECÁNICA DE PRIORIDAD ABSOLUTA: Movimientos de alta prioridad (Protección +4, Sorpresa/Fake Out +3, Polvo Ira/Señuelo +2, Velocidad Extrema +2, Golpes Prioritarios +1) SIEMPRE atacan antes que movimientos de prioridad 0, sin importar la velocidad ni Viento Afín.")
-    facts.append("🛡️ INMUNIDADES Y DEBILIDADES CLAVE: Tierra es 100% INMUNE a Eléctrico; Agua es DÉBIL (2x) a Eléctrico; Volador es DÉBIL (2x) a Eléctrico; Hada es inmune a Dragón.")
+    facts.append("⚡ REGLA DE PRIORIDAD EN VGC: Prioridad (+4 Protección, +3 Sorpresa, +2 Señuelo/Polvo Ira/Vel. Extrema, +1 Priotarios) SIEMPRE actúa antes que prioridad 0, ignorando la Velocidad base y Viento Afín.")
+    facts.append("🛡️ REGISTRADOR DE INMUNIDADES: Tierra es 0x a Eléctrico; Volador es 0x a Tierra; Hada es 0x a Dragón; Fantasma es 0x a Normal/Lucha; Psíquico no afecta a Siniestro.")
     return facts
 
 def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_leads, opp_leads, my_team, opp_team, archetype, mechanic_facts):
@@ -198,33 +198,22 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
     facts_str = "\n".join([f"- {f}" for f in mechanic_facts]) if mechanic_facts else "- No hay hechos de campo."
 
     system_prompt = (
-        "Eres un Coach Experto en Pokémon VGC, analizando el formato custom 'Pokémon Champions 2026 - Regulación M-C'. "
-        "Tu objetivo es ayudar al usuario a mejorar su estrategia, toma de decisiones y comprensión de este metagame específico.\n\n"
-        "instrucciones:\n"
-        "Analiza el registro de batalla basándote strictly en las mecánicas de VGC. Piensa paso a paso (Chain of Thought): "
-        "primero identifica las 'win conditions' de ambos equipos, luego evalúa las sinergias (meta M-C) y desglosa cada turno.\n"
-        "Si falta información, responde: 'Información no detallada en el registro' y no inventes jugadas.\n\n"
-        "REGLAS CRÍTICAS DE EVALUACIÓN (FORMATO M-C):\n"
-        "1. RECONOCIMIENTO DE TEMPO Y KOS: Si el usuario consigue un KO o Doble KO, evalúalo como un ÉXITO CRÍTICO. "
-        "   NO sugieras curar o proteger cuando el usuario gana la ventaja de turno (tempo) logrando KOs.\n"
-        "2. BUFFS Y STATS: Si Competitivo (Competitive) o Tenacidad (Defiant) se activan (ej. por Intimidación), "
-        "   relaciona el daño posterior con ese +2 en ataque correspondiente.\n"
-        "3. MEGAEVOLUCIONES CUSTOM (VITAL): ESTE FORMATO PERMITE MEGAS NO OFICIALES. Si el log indica Megaevoluciones como "
-        "   'Raichu-Mega-Y', 'Staraptor-Mega', 'Scovillain-Mega', 'Floette-Eternal-Mega', 'Golisopod-Mega', acéptalas como VÁLIDAS. "
-        "   JAMÁS digas que son errores o alucinaciones.\n"
-        "4. RESPETO AL RESULTADO REAL: Si el prompt indica que el usuario GANÓ, asume la victoria. NUNCA digas que perdió.\n"
-        "5. LÓGICA DE POSICIÓN: NUNCA sugieras 'cambiar a X' si el Pokémon X ya está combatiendo en el campo.\n"
-        "6. TABLA DE TIPOS: No recomiendes dejar a un Pokémon tipo Agua o Volador frente a atacantes Eléctricos. Valora las inmunidades (Tierra vs Eléctrico).\n"
-        "7. PRIORIDAD vs VELOCIDAD: Sorpresa (+3), Protección (+4) y Polvo Ira (+2) actúan siempre antes que movimientos de prioridad 0, sin importar Velocidad o Viento Afín. Nunca recrimines a un jugador por ser 'más lento' si el rival usó un ataque de mayor prioridad.\n\n"
-        "mecanicas_a_evaluar:\n"
-        "1. Prioridad de ataques (+4 a -6) y Speed Tiers.\n"
-        "2. Megaevoluciones (oficiales y custom Reg M-C).\n"
-        "3. Tabla de tipos y sinergias (ej. Grassy Terrain Rillaboom + Unburden Sneasler, Rain Pelipper + Basculegion).\n"
-        "4. Puntos de estadística, climas y campos activos.\n\n"
-        "formato_de_salida:\n"
-        "Formatea tu respuesta en HTML limpio (sin envoltorio markdown de triples comillas) con la siguiente estructura:\n\n"
+        "Eres un Coach Experto en el Mundial de Pokémon VGC (Video Game Championships), analizando combates del formato 'Pokémon Champions - Regulación M-C'. "
+        "Tu evaluación debe ser 100% imparcial, tácticamente rigurosa y aplicable a cualquier equipo o arquetipo VGC.\n\n"
+        "INSTRUCCIONES DE AUDITORÍA VGC UNIVERSAL:\n"
+        "Analiza el combate paso a paso (Chain of Thought): primero deduce las Win Conditions según Leads/Backs, evalúa las sinergias de clima/campo/habilidades y desglosa cada turno.\n"
+        "Si en el log falta información de un turno, indica 'Información no detallada en el registro' sin inventar acciones.\n\n"
+        "REGLAS TÁCTICAS UNIVERSALES DE VGC:\n"
+        "1. TEMPO Y CONTROL DE VENTAJAS: Si el usuario logra un KO o Doble KO en un turno, evalúalo como ÉXITO CRÍTICO. JAMÁS recomiendes jugar pasivo (Proteger/Curar) en turnos donde se obtiene ventaja decisiva de tempo.\n"
+        "2. CÁLCULO DE PRIORIDAD (+4 a -6): La prioridad de movimiento es ABSOLUTA. Protección (+4), Sorpresa (+3), Señuelo/Polvo Ira (+2) y ataques de prioridad (+1) actúan SIEMPRE antes que movimientos de prioridad 0. NUNCA califiques como error 'ser superado en velocidad' si el rival usó mayor prioridad.\n"
+        "3. MANIOBRAS DE PIVOTE Y FAKE OUT: Cambiar a un Pokémon para absorber un 'Sorpresa' (Fake Out) o un golpe dirigido a un compañero es una jugada de posicionamiento estándar. NUNCA recrimines al Pokémon sustituido por no haber atacado, ya que habría sufrido flinch.\n"
+        "4. EFECTOS CLIMÁTICOS Y DE CAMPO: Evalúa correctamente las sinergias mecánicas activas en el log (ej. Lluvia = 1 turno en movimientos de carga eléctrica/voladora, 100% precisión en Trueno/Huracán; Sol = 1 turno en Rayo Solar; Campo Psíquico = anula prioridad; etc.).\n"
+        "5. RIGOR EN TABLA DE TIPOS E INMUNIDADES: Considera las inmunidades (0x) y debilidades (2x/4x). NUNCA recomiendes mantener a un Pokémon en campo como 'tanque' frente a un atacante con ventaja elemental directa.\n"
+        "6. EVALUACIÓN DE ERRORES REALES (NO INVENTAR): Si una jugada del usuario fue correcta o la mejor opción disponible en ese turno, escribe 'Ninguno' en la casilla ❌ Errores. No inventes fallos por rellenar el formato.\n"
+        "7. FORMATO CHAMPIONS (REG M-C): Acepta cualquier Megaevolución o Pokémon custom presente en los registros de Showdown (ej. Raichu-Mega-Y, Staraptor-Mega, Scovillain-Mega, etc.) como totalmente VÁLIDO.\n\n"
+        "FORMATO DE SALIDA (HTML limpio sin bloques markdown):\n\n"
         f"<div style='border-bottom: 2px solid {color}; padding-bottom: 6px; margin-bottom: 12px;'>\n"
-        f"    <b style='color: {color}; font-size: 1.15em;'>🏆 COACH IA: AUDITORÍA CHAMPIONS VGC (Reg M-C)</b>\n"
+        f"    <b style='color: {color}; font-size: 1.15em;'>🏆 COACH IA: AUDITORÍA VGC (Reg M-C)</b>\n"
         f"</div>\n"
         "<h3>1. DESCRIPCIÓN TÁCTICA:</h3>\n"
         "<p>- <b>Análisis de Equipos (Leads/Backs):</b> [Detalles...]</p>\n"
@@ -234,8 +223,8 @@ def analyze_with_ai(clean_actions_text, user_name, opponent_name, user_won, my_l
         "<div style='background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; margin-bottom: 10px;'>\n"
         "    <b>Turno X:</b><br>\n"
         "    ✅ <b>Aciertos:</b> [Aciertos]<br>\n"
-        "    ❌ <b>Errores:</b> [Errores]<br>\n"
-        "    🎯 <b>El Turno Perfecto:</b> [Jugada óptima]\n"
+        "    ❌ <b>Errores:</b> [Errores o 'Ninguno']<br>\n"
+        "    🎯 <b>El Turno Perfecto:</b> [Jugada óptima o 'El turno fue ejecutado correctamente']\n"
         "</div>\n"
         "<h3>3. CONCLUSIÓN Y PUNTOS DE MEJORA:</h3>\n"
         "<p>- <b>Resumen General:</b> [Resumen]</p>\n"
@@ -304,7 +293,6 @@ def parse_showdown_replay(url, user_name=DEFAULT_USER):
         opp_p = "p2" if user_p == "p1" else "p1"
         opponent_name = players.get(opp_p, "Rival Showdown").strip() or "Rival Showdown"
         
-        # DETECTOR MEJORADO DE GANADOR
         winner_name = data.get("winner", "")
         for line in log.split("\n"):
             parts = line.split("|")
@@ -530,64 +518,4 @@ def parse_replay_route():
         results = [r[0] for r in cursor.fetchall()]
         wins, losses = results.count('Victoria'), results.count('Derrota')
         if wins >= 2: cursor.execute(f"UPDATE series_matches SET result = 'Victoria (BO3)' WHERE id = {placeholder}", (series_id,))
-        elif losses >= 2: cursor.execute(f"UPDATE series_matches SET result = 'Derrota (BO3)' WHERE id = {placeholder}", (series_id,))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/update_misplay', methods=['GET', 'POST'])
-def update_misplay():
-    if request.method == 'GET': return redirect(url_for('index'))
-    series_id = request.form.get('series_id')
-    reason = request.form.get('reason')
-    notes = request.form.get('notes', '')
-    conn, db_type = get_db()
-    cursor = conn.cursor()
-    placeholder = "%s" if db_type == "postgres" else "?"
-    cursor.execute(f"UPDATE series_matches SET misplay_reason = {placeholder}, notes = {placeholder} WHERE id = {placeholder}", (reason, notes, series_id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete_series', methods=['GET', 'POST'])
-def delete_series():
-    if request.method == 'GET': return redirect(url_for('index'))
-    series_id = request.form.get('series_id')
-    conn, db_type = get_db()
-    cursor = conn.cursor()
-    placeholder = "%s" if db_type == "postgres" else "?"
-    cursor.execute(f"DELETE FROM games WHERE series_id = {placeholder}", (series_id,))
-    cursor.execute(f"DELETE FROM series_matches WHERE id = {placeholder}", (series_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete_team', methods=['GET', 'POST'])
-def delete_team():
-    if request.method == 'GET': return redirect(url_for('index'))
-    team_id = request.form.get('team_id')
-    if team_id:
-        conn, db_type = get_db()
-        cursor = conn.cursor()
-        placeholder = "%s" if db_type == "postgres" else "?"
-        cursor.execute(f"DELETE FROM user_teams WHERE id = {placeholder}", (team_id,))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/add_cp', methods=['GET', 'POST'])
-def add_cp():
-    if request.method == 'GET': return redirect(url_for('index'))
-    name = request.form.get('name') or 'Torneo VGC'
-    cp = int(request.form.get('cp') or 0)
-    if cp > 0:
-        conn, db_type = get_db()
-        cursor = conn.cursor()
-        placeholder = "%s" if db_type == "postgres" else "?"
-        cursor.execute(f"INSERT INTO tournaments (name, cp) VALUES ({placeholder}, {placeholder})", (name, cp))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+        elif losses >= 2: cursor.execute(f"UPDATE series_matches SET result = 'Derrota (BO3
